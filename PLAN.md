@@ -11,10 +11,10 @@
 
 ## Resume point
 
-> **Current day**: Day 2 (Sat Apr 25)
-> **Last completed**: (update as you go)
-> **Next action**: Day 2 scaffolding — see Day 2 checklist below
-> **Blockers**: none
+> **Current day**: End of Day 2 (Sat Apr 25)
+> **Last completed**: Repo init, monorepo scaffold, specs/architecture.md, README/AI_USAGE/FEEDBACK stubs, Foundry installed (via foundryup + libusb), Go 1.26 installed via brew, AXL binary built (`axl/bin/node`, pinned to Go 1.25.5 via AXL Makefile), 3 Ed25519 keypairs generated, 3 node configs written, AXL smoke-test passed (boots + connects to Gensyn mesh).
+> **Next action**: Day 3 — init Foundry project in `contracts/`, write Guardian.sol + VulnerableLendingPool.sol + AgentINFT.sol, deploy to 0G Chain testnet. Decide Ed25519-vs-secp256k1 signature scheme by Day 3 noon.
+> **Blockers**: USER tasks outstanding — sign up for KeeperHub/0G Builder Hub/Gensyn Discord, fund testnet wallets on 0G Chain + Base Sepolia, reserve domain + X handle.
 
 Update this block every time you pause/resume so a fresh Claude session can pick up without re-deriving context.
 

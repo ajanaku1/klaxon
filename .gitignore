@@ -22,7 +22,7 @@ contracts/broadcast/
 contracts/.env
 
 # AXL
-axl/bin/
+axl/bin/node
 axl/*.pem
 axl/*.key
 axl/data/

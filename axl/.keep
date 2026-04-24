@@ -1,3 +1,0 @@
-Placeholder. AXL node configs (node-a-config.json, node-b-config.json), Ed25519 keys, and run scripts land here Day 2/4.
-
-AXL binary itself is built from github.com/gensyn-ai/axl — binary goes in axl/bin/ (gitignored).
