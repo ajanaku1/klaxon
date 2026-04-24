@@ -21,28 +21,30 @@ contracts/cache/
 contracts/broadcast/
 contracts/.env
 
-# AXL
+# AXL node binary + keys
 axl/bin/node
 axl/*.pem
 axl/*.key
 axl/data/
 
-# Env + secrets
+# Secrets
 .env
 .env.local
 .env.*.local
 *.key
 *.pem
 
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
+# Local
+.claude/
+.vercel
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log

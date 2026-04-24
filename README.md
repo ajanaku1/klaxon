@@ -1,63 +1,186 @@
-# Klaxon
+# Klaxon: Decentralized pause oracle for DeFi
 
-**Decentralized pause oracle for DeFi.** A swarm of independently-operated AI agents watches your contracts, cross-verifies findings inside TEEs, and autonomously triggers protocol pauses when economic quorum backs the call. No one agent can pause. No one agent can lie without getting slashed.
+A swarm of independently-operated AI agents watches your contracts, cross-verifies findings inside TEEs, and autonomously triggers protocol pauses when economic quorum backs the call. No single agent can pause. No single agent can lie without getting slashed.
+
+[![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 *"When one finds it, a thousand answer."*
 
-Built for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) (Apr 24 – May 3, 2026).
+Built for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) (April 24 to May 3, 2026).
 
 ---
 
 ## Status
 
-🚧 **Build in progress.** See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and current status.
+Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and current status.
 
-## Prize tracks
+---
 
-- [0G](https://ethglobal.com/events/openagents/prizes/0g) — Track B: Autonomous Agents/Swarms/iNFT Innovations ($7.5k)
-- [Gensyn AXL](https://ethglobal.com/events/openagents/prizes/gensyn) — Best Application of Agent eXchange Layer ($5k)
-- [KeeperHub](https://ethglobal.com/events/openagents/prizes/keeperhub) — Best Use of KeeperHub + Builder Feedback Bounty ($4.5k + $500)
+## What Is Klaxon?
 
-## Stack
+Every DeFi protocol has a pauser multisig. It is the most dangerous key in the system and also the slowest. Klaxon replaces it with a decentralized pause oracle: a swarm of independently-operated AI agents that watch your contracts, verify findings inside Trusted Execution Environments, and trigger the pause only when economic quorum backs the call.
 
-- **0G Chain** — Guardian + iNFT contracts deployed here
-- **0G Storage** — agent manifests + reputation logs (Merkle root hashes)
-- **0G Compute Sealed Inference** — TEE-signed finding summaries (Intel TDX + H100)
-- **Gensyn AXL** — signed finding gossip across independent agent nodes
-- **KeeperHub** — pause/sweep tx execution with retry, private routing, gas optimization
-- **x402** — agent bounty splits post-rescue (Base Sepolia, V2 sessions)
+Your funds stop moving the second the swarm knows. Not when your ops team wakes up.
 
-## Architecture
+---
 
-See [`specs/architecture.md`](./specs/architecture.md) for the full architecture.
+## Prize Tracks
 
-High-level: analyzer agents watch a protocol's contracts → detect suspected exploit → each finding is summarized by an LLM call through 0G Sealed Inference (TEE signs the summary) → signed findings gossip across AXL → quorum of 3-of-N independent operators triggers a Guardian contract's `pause()` via KeeperHub.
+Klaxon targets three ETHGlobal Open Agents partner prizes with load-bearing integrations:
 
-## Honest TEE scope
+| Sponsor | Track | Prize |
+|---|---|---|
+| [0G](https://ethglobal.com/events/openagents/prizes/0g) | Track B: Autonomous Agents, Swarms, iNFT | $7,500 |
+| [Gensyn AXL](https://ethglobal.com/events/openagents/prizes/gensyn) | Best Application of Agent eXchange Layer | $5,000 |
+| [KeeperHub](https://ethglobal.com/events/openagents/prizes/keeperhub) | Best Use of KeeperHub + Builder Feedback Bounty | $4,500 + $500 |
 
-0G Compute Sealed Inference is a TEE-attested LLM inference service, not an arbitrary-workload TEE. Klaxon analyzers run **off-TEE** on the agent node; findings are summarized via 0G Compute, which signs the summary inside the enclave. The attestation proves *"this finding was summarized by this model in a TEE,"* not *"the raw detection was done in a TEE."* Future work: move analyzer weights into a 0G Compute provider model so detection itself is enclave-attested.
+---
 
-## Repo layout
+## Features
+
+- **Decentralized pause authority**: replaces a single pauser multisig with an N-of-M signature quorum from independently-operated agents
+- **TEE-attested findings**: every signed finding includes a 0G Sealed Inference attestation proving the summary was produced inside an Intel TDX + NVIDIA H100 enclave
+- **Peer-to-peer gossip over AXL**: signed findings propagate across the Gensyn mesh with no central broker
+- **Economic quorum**: agents stake bonds, earn bounties on verified rescues, and lose bonds on false positives
+- **Bounded action surface**: agents can only sign findings, never hold keys or move funds. Every move is executed by a Guardian contract that only sweeps to the protocol's own preset recovery vault
+- **Reliable execution**: KeeperHub submits pause and sweep transactions with private routing, retries, and gas optimization
+- **Agents as iNFTs**: each agent is minted as an ERC-7857 iNFT on 0G Chain, with identity metadata and reputation logs stored in 0G Storage
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Contracts | Solidity 0.8, Foundry, 0G Chain (EVM-compatible) |
+| Agent runtime | Python 3.10, Pydantic, `requests` |
+| P2P mesh | Gensyn AXL (Go binary, Ed25519, Yggdrasil + gVisor) |
+| AI inference | 0G Compute Sealed Inference (GLM-5, Intel TDX + H100) |
+| Storage | 0G Storage (Merkle-root content addressing) |
+| Execution | KeeperHub (MCP server + CLI) |
+| Payments | x402 V2 sessions on Base Sepolia |
+| Dashboard | Next.js 15, Tailwind, shadcn/ui |
+
+---
+
+## How It Works
 
 ```
-contracts/    # Foundry — Guardian, VulnerableLendingPool, AgentINFT (ERC-7857)
-agents/       # Python — analyzer agents, AXL client, aggregator
-dashboard/    # Next.js — swarm topology, finding feed, rescue replay
-axl/          # AXL node configs + run scripts
-specs/        # Architecture + prompt artifacts (spec-driven dev)
-docs/         # Per-prize submission write-ups
+                        0G Chain
+           +--------------------------------+
+           |  Guardian.sol  VulnerableLP    |
+           |  AgentINFT (ERC-7857)          |
+           +--------------------------------+
+                  ^                ^
+                  | pause tx       | target
+                  | (KeeperHub)    | of exploit
+                  |                |
+           +------+------+         |
+           | Aggregator  |<--quorum|
+           | (per node)  |         |
+           +-------------+         |
+                  ^                |
+          findings | gossip        |
+                  |                |
+          +-------+--------+ AXL mesh
+          |  Node A        |<----->|  Node B  |
+          |  Analyzer 1    |       |  Analyzer 2 |
+          |  0G Compute    |       |  0G Compute |
+          +----------------+       +-------------+
+                  |                      |
+                  v                      v
+         TEE-signed summaries (0G Sealed Inference)
+                  |
+                  v
+         Agent manifests + reputation (0G Storage)
+
+         Post-rescue bounty splits via x402
 ```
 
-## Setup
+For the full architecture, see [`specs/architecture.md`](./specs/architecture.md).
 
-_Coming once Day 3–6 land. Target: `npm run demo` spins up 2 AXL nodes + attacker + dashboard end-to-end._
+---
 
-## Submission artifacts
+## Rescue Flow
 
-- [`AI_USAGE.md`](./AI_USAGE.md) — per-file AI attribution (ETHGlobal requirement)
-- [`FEEDBACK.md`](./FEEDBACK.md) — KeeperHub Builder Feedback Bounty submission
-- [`specs/`](./specs/) — spec-driven dev artifacts (prompts + plans)
+1. Attacker submits an oracle-manipulation transaction.
+2. An analyzer on Node A detects the anomaly, requests a signed summary from 0G Compute Sealed Inference, and broadcasts a signed `Finding` over AXL.
+3. An analyzer on Node B independently detects the companion reentrancy pattern and broadcasts its own `Finding`.
+4. Both aggregators collect signed findings, verify TEE attestations, and count toward quorum. Three-of-N signatures on the same finding hash trigger action.
+5. The aggregator invokes a KeeperHub workflow. The workflow verifies quorum onchain, submits the pause transaction via private routing, and optionally follows with `sweepToRecovery` on multi-block exploits.
+6. The dashboard renders a replay: the attacker's drain transaction fails because the pool is paused. Without Klaxon it would have drained.
+7. Bounty splits pay each participating agent via x402.
+
+---
+
+## Honest TEE Scope
+
+0G Compute Sealed Inference is a TEE-attested LLM inference service. It is not an arbitrary-workload TEE. Klaxon analyzers run off-TEE on the agent node. Findings are summarized by an LLM call through 0G Compute, which signs the summary inside the enclave. The attestation proves that the finding was summarized by a specific model inside a TEE. It does not prove that the raw detection was performed inside a TEE.
+
+The analyzer code hash is committed in the iNFT manifest, so operators can verify the binary matches what the agent claims to run. Moving detection itself into a 0G Compute provider model is post-hackathon work.
+
+---
+
+## Running Locally
+
+Status: scaffolding only as of Day 2. Full walkthrough lands Day 8 once the end-to-end demo is reproducible.
+
+### Prerequisites
+- Node.js 20+
+- Python 3.10+
+- Go 1.25.5+ (for building AXL from source)
+- Foundry (forge, cast, anvil)
+
+### Install
+```bash
+git clone https://github.com/ajanaku1/klaxon.git
+cd klaxon
+
+# Build AXL binary
+git clone https://github.com/gensyn-ai/axl /tmp/axl-src
+(cd /tmp/axl-src && make build)
+cp /tmp/axl-src/node axl/bin/node
+
+# Generate agent keypairs
+cd axl
+openssl genpkey -algorithm ed25519 -out node-a-private.pem
+openssl genpkey -algorithm ed25519 -out node-b-private.pem
+openssl genpkey -algorithm ed25519 -out node-c-private.pem
+```
+
+### Run AXL nodes
+```bash
+cd axl
+./bin/node -config node-a-config.json   # terminal 1
+./bin/node -config node-b-config.json   # terminal 2
+./bin/node -config node-c-config.json   # terminal 3
+```
+
+Environment configuration template: [`.env.example`](./.env.example). Copy to `.env` and fill in deployer key, 0G Compute API key, KeeperHub API key, x402 facilitator, and 3 agent keys.
+
+---
+
+## Project Structure
+
+```
+klaxon/
+├── contracts/       # Foundry: Guardian, VulnerableLendingPool, AgentINFT
+├── agents/          # Python: analyzers, AXL client, aggregator, KeeperHub + x402 integrations
+├── dashboard/       # Next.js: topology graph, finding feed, rescue replay, bounty ticker
+├── axl/             # AXL node configs and run scripts (binary in bin/, keys gitignored)
+├── specs/           # Architecture and prompt artifacts (spec-driven dev)
+├── docs/submissions # Per-prize submission write-ups
+├── PLAN.md          # 9-day build plan with resume block
+├── AI_USAGE.md      # AI tool attribution (ETHGlobal requirement)
+├── FEEDBACK.md      # KeeperHub Builder Feedback Bounty submission
+└── .env.example     # Integration keys template
+```
+
+---
 
 ## License
 
-MIT (TBD — finalize before submission)
+[MIT](LICENSE)
