@@ -1,0 +1,49 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/.env
+
+# AXL
+axl/bin/
+axl/*.pem
+axl/*.key
+axl/data/
+
+# Env + secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
