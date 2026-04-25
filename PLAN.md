@@ -14,7 +14,7 @@
 > **Current day**: End of Day 2 (Sat Apr 25)
 > **Last completed**: Repo init, monorepo scaffold, specs/architecture.md, README/AI_USAGE/FEEDBACK stubs, Foundry installed (via foundryup + libusb), Go 1.26 installed via brew, AXL binary built (`axl/bin/node`, pinned to Go 1.25.5 via AXL Makefile), 3 Ed25519 keypairs generated, 3 node configs written, AXL smoke-test passed (boots + connects to Gensyn mesh).
 > **Next action**: Day 3 — init Foundry project in `contracts/`, write Guardian.sol + VulnerableLendingPool.sol + AgentINFT.sol, deploy to 0G Chain testnet. Decide Ed25519-vs-secp256k1 signature scheme by Day 3 noon.
-> **Blockers**: USER tasks outstanding — sign up for KeeperHub/0G Builder Hub/Gensyn Discord, fund testnet wallets on 0G Chain + Base Sepolia, reserve domain + X handle.
+> **Blockers**: USER tasks outstanding — KeeperHub registered (✓), 0G needs no signup (wallet-based auth via build.0g.ai/compute). Still pending: join Gensyn Discord/Telegram, fund testnet wallets on 0G Chain + Base Sepolia, deposit 3 OG to a 0G Compute provider account, reserve domain + X handle.
 
 Update this block every time you pause/resume so a fresh Claude session can pick up without re-deriving context.
 
@@ -26,8 +26,10 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 
 - [ ] Init repo `/Users/mac/Vibecoding/klaxon`, commit empty scaffold (Next.js dashboard + Hardhat/Foundry contracts + Python agents in monorepo layout)
 - [ ] Create `README.md` (stub), `AI_USAGE.md` (stub), `FEEDBACK.md` (empty, start logging as you go)
-- [ ] Sign up: KeeperHub (`app.keeperhub.com`), 0G Builder Hub (`build.0g.ai`), Gensyn Telegram/Discord for AXL support
-- [ ] Fund testnet wallet on 0G Chain testnet, Base Sepolia for x402
+- [x] Sign up at KeeperHub (`app.keeperhub.com`)
+- [ ] Join Gensyn Telegram/Discord for AXL support
+- [ ] Fund testnet wallet on 0G Chain testnet (faucet) and deposit 3 OG to a 0G Compute provider — wallet-based auth, no separate signup needed
+- [ ] Fund testnet wallet on Base Sepolia for x402 payments
 - [ ] Clone + build AXL Go binary locally (`github.com/gensyn-ai/axl`), run one node successfully, generate Ed25519 key
 - [ ] Skim `collaborative-autoresearch-demo` repo — reference for how AXL nodes talk
 - [ ] Write `specs/architecture.md` (1-pager with 3 contracts, 2 agents, 2 AXL nodes, data flow arrows) — commit as spec artifact
