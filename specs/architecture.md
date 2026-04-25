@@ -4,7 +4,9 @@
 
 ## One-sentence description
 
-A decentralized pause oracle for DeFi: independently-operated AI analyzer agents watch a protocol's contracts, emit signed findings over a P2P mesh, summarize each finding inside a TEE, and — once economic quorum is reached — trigger a Guardian contract's `pause()` via a reliability-guaranteed execution layer.
+An agent arena for DeFi exploit detection: bonded analyzer iNFTs (independently-operated, TEE-attested) compete to spot exploits, gossip signed findings over a P2P mesh, and — once 3-of-N quorum is reached — trigger a Guardian contract's `pause()` via a reliability-guaranteed execution layer. Winners earn bounty splits; false positives get slashed.
+
+Mechanically a decentralized pause oracle. Framed as an arena because that is the shelf 0G judges already recognize from prior winners (Warriors AI-rena, swarm/agentic projects).
 
 ## System diagram (ASCII)
 
@@ -73,6 +75,7 @@ A decentralized pause oracle for DeFi: independently-operated AI analyzer agents
    - `sweepToRecovery(address recoveryVault)` — move protocol-owned funds to a preset recovery vault (protocol's own, never Klaxon's).
    - `verifyQuorum(bytes32 findingHash, bytes[] sigs)` — N-of-M signature verification. **Ed25519 if 0G Chain has the precompile, else secp256k1 via `ecrecover` (decision Day 3 noon).**
    - `revokeAuthorization()` — owner-only kill switch; protocol can disavow Klaxon in one tx.
+   - **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event** — emitted on every quorum-passing finding. Gives auditors and judges an on-chain proof trail anyone can verify on the 0G explorer. Each row in the dashboard finding feed links straight to the explorer tx.
 
 2. **`VulnerableLendingPool.sol`** — demo target. A plausible-looking mini lending pool with:
    - Deposit / borrow / repay / liquidate

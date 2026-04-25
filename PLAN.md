@@ -4,7 +4,7 @@
 **Submission deadline**: Sun May 3, 12:00 pm EDT
 **Build start**: Sat Apr 25 (Day 2)
 **Team**: solo
-**Pitch**: decentralized pause oracle for DeFi — TEE-attested swarm with economic quorum
+**Pitch (arena-framed, mechanically a pause oracle)**: agent arena for DeFi exploit detection — bonded analyzer iNFTs compete to spot exploits, TEE-verify, and trigger protocol pauses on 3-of-N quorum. Winners earn bounty splits; false positives get slashed.
 **Prize targets (3-cap)**: 0G Track B ($7.5k) + Gensyn AXL ($5k) + KeeperHub ($4.5k + $500)
 
 ---
@@ -46,7 +46,7 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 
 **Objective**: all Solidity done and deployed on 0G Chain testnet.
 
-- [ ] `Guardian.sol`: `pause()`, `sweepToRecovery(address)`, `verifyQuorum(bytes[] sigs, bytes32 findingHash)` (3-of-N signature verify), `revokeAuthorization()` owner kill switch
+- [ ] `Guardian.sol`: `pause()`, `sweepToRecovery(address)`, `verifyQuorum(bytes[] sigs, bytes32 findingHash)` (3-of-N signature verify), `revokeAuthorization()` owner kill switch, **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event emitted on every quorum-passing finding** (on-chain attestation trail — AInfluencer's 1st-place narrative hook applied to security)
 - [ ] `VulnerableLendingPool.sol`: deposit/borrow/liquidate with intentionally exploitable oracle dependency + reentrant withdraw. Exploit must take ≥2 txs (oracle manipulation block N, drain block N+1) so the pause window is real
 - [ ] `AgentINFT.sol` (ERC-7857): mint-only, `tokenURI` returns a 0G Storage root hash pointing to manifest JSON
 - [ ] Deploy all three to 0G Chain testnet, record addresses in `README.md`
@@ -84,6 +84,7 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 - [ ] Attach `{ summary, tee_signature, enclave_quote }` to Finding before gossip
 - [ ] Verify enclave signature on receiving node before counting toward quorum
 - [ ] Update README with honest TEE scope note: *"TEE signs the LLM summary, not the raw detection."*
+- [ ] **Stretch goal (only if Day 5 ends with slack)**: dynamic reputation rolls on iNFT manifest — after a successful aggregated finding, update Storage root + push new `tokenURI` to the AgentINFT contract. Visible "persistent memory + dynamic upgrades" per the 0G iNFT track text. Skip if behind.
 
 **Done when**: end-to-end flow: attack tx → analyzer detects → 0G Compute summarizes → signed finding gossips across AXL → quorum verified → pause call emitted.
 

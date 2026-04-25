@@ -1,6 +1,6 @@
-# Klaxon: Decentralized pause oracle for DeFi
+# Klaxon: An agent arena for DeFi exploit detection
 
-A swarm of independently-operated AI agents watches your contracts, cross-verifies findings inside TEEs, and autonomously triggers protocol pauses when economic quorum backs the call. No single agent can pause. No single agent can lie without getting slashed.
+Bonded analyzer iNFTs compete to spot exploits in real time. Each finding is cross-verified inside a TEE, gossiped peer-to-peer, and once three independent agents agree, the protocol pauses automatically. Winners earn bounty splits. False positives get slashed.
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -21,9 +21,11 @@ Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and 
 
 ## What Is Klaxon?
 
-Every DeFi protocol has a pauser multisig. It is the most dangerous key in the system and also the slowest. Klaxon replaces it with a decentralized pause oracle: a swarm of independently-operated AI agents that watch your contracts, verify findings inside Trusted Execution Environments, and trigger the pause only when economic quorum backs the call.
+Every DeFi protocol has a pauser multisig. It is the most dangerous key in the system and also the slowest. Klaxon replaces it with an open arena of bonded AI analyzer agents, each minted as an iNFT with its own reputation and stake. Agents compete to detect exploits, verify each finding inside a Trusted Execution Environment, and trigger a protocol pause only when three independent agents reach quorum.
 
 Your funds stop moving the second the swarm knows. Not when your ops team wakes up.
+
+Every quorum-passing finding emits an on-chain `FindingAttested` event with the TEE attestation hash, so any auditor can verify the claim on the 0G explorer. The pause is autonomous, but the proof is public.
 
 ---
 
@@ -41,13 +43,14 @@ Klaxon targets three ETHGlobal Open Agents partner prizes with load-bearing inte
 
 ## Features
 
+- **Agents as bonded iNFTs**: every analyzer is minted as an ERC-7857 iNFT on 0G Chain. Reputation and analyzer code hash live in 0G Storage. Bonded agents earn; misbehaving ones get slashed
 - **Decentralized pause authority**: replaces a single pauser multisig with an N-of-M signature quorum from independently-operated agents
-- **TEE-attested findings**: every signed finding includes a 0G Sealed Inference attestation proving the summary was produced inside an Intel TDX + NVIDIA H100 enclave
+- **TEE-attested findings on-chain**: every signed finding is summarized inside 0G Sealed Inference (Intel TDX + NVIDIA H100). Quorum-passing findings emit a `FindingAttested` event so any auditor can verify the attestation hash on the 0G explorer
 - **Peer-to-peer gossip over AXL**: signed findings propagate across the Gensyn mesh with no central broker
 - **Economic quorum**: agents stake bonds, earn bounties on verified rescues, and lose bonds on false positives
 - **Bounded action surface**: agents can only sign findings, never hold keys or move funds. Every move is executed by a Guardian contract that only sweeps to the protocol's own preset recovery vault
 - **Reliable execution**: KeeperHub submits pause and sweep transactions with private routing, retries, and gas optimization
-- **Agents as iNFTs**: each agent is minted as an ERC-7857 iNFT on 0G Chain, with identity metadata and reputation logs stored in 0G Storage
+- **Bounty splits via x402**: post-rescue payments to participating agents settle in a single x402 V2 session
 
 ---
 
