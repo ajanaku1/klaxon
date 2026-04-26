@@ -25,6 +25,7 @@ contracts/.env
 axl/bin/node
 axl/*.pem
 axl/*.key
+axl/agent-eth-keys.json
 axl/data/
 
 # Secrets
