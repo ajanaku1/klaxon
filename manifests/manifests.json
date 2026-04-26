@@ -1,0 +1,23 @@
+{
+  "agents": [
+    {
+      "id": "a",
+      "eth_address": "0x4A0AF400AdF0CF99cF7Bab4F05E84a227bb15fFA",
+      "root_hash": "0x0e68ee97f6f6f233fe7c72d1304b2b17b2b505db77f9815b783cf30d6c37dc8f",
+      "path": "manifests/agent-a.json"
+    },
+    {
+      "id": "b",
+      "eth_address": "0xD87AD210297A2d7ECAc28AaFc224F9d1444221fa",
+      "root_hash": "0x74b33ba9b1d5e72bb9530bd5d43e92de66a650b126a65e0a3572096282f07426",
+      "path": "manifests/agent-b.json"
+    },
+    {
+      "id": "c",
+      "eth_address": "0x92977216087Baec7Ff1Deb14e07258B06DB08804",
+      "root_hash": "0x1403175d6959bc1809bf1e8686d33b01d69668da62fdd4b1d4d9a5b6fde8f6a4",
+      "path": "manifests/agent-c.json"
+    }
+  ],
+  "code_hash": "0x9bf55972e8aeab52ffa8d2260d9fbcdfbc04c2fdcd4c3e715f1fbaef108ea3ae"
+}
