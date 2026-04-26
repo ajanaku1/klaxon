@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from agent import Agent, AgentConfig
 
-DEFAULT_RPC = os.environ.get("ZEROG_TESTNET_RPC", "https://evmrpc-testnet.0g.ai")
+DEFAULT_RPC = os.environ.get("KLAXON_RPC", os.environ.get("BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org"))
 
 
 def main():

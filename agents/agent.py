@@ -34,7 +34,7 @@ from finding import Finding
 from og_compute import Attestation, summarize as og_summarize
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEPLOYMENT_PATH = REPO_ROOT / "contracts" / "deployments" / "16602.json"
+DEPLOYMENTS_DIR = REPO_ROOT / "contracts" / "deployments"
 KEYS_PATH = REPO_ROOT / "axl" / "agent-eth-keys.json"
 
 # ManipulableOracle.PriceBumped(address indexed by, uint256 oldPrice, uint256 newPrice)
@@ -61,7 +61,10 @@ class AgentConfig:
     agent_id: str
     rpc_url: str
     poll_interval_s: float = 1.5
-    priority_gas_price_gwei: int = 2  # 0G Galileo minimum
+    # priority_gas_price_gwei = None means auto-pick by chain:
+    # 0G Galileo (16602) needs 2 gwei minimum; Base Sepolia (84532) is happy
+    # at 0.1 gwei. Override with --priority-gas-price for other chains.
+    priority_gas_price_gwei: float | None = None
     enable_tee: bool = True  # set False to skip 0G Compute summarization for fast tests
     expected_tee_signing_addresses: frozenset[str] = frozenset()
 
@@ -94,10 +97,14 @@ class Agent:
         self.cfg = cfg
         self.log = logging.getLogger(f"agent[{cfg.agent_id}]")
         self.eth_address, self.private_key = _load_eth_key(cfg.agent_id)
-        self.deployment = json.loads(DEPLOYMENT_PATH.read_text())
         self.roster = load_roster()
         self.axl = AxlClient(self_id=cfg.agent_id, roster=self.roster)
         self.w3 = Web3(Web3.HTTPProvider(cfg.rpc_url))
+        chain_id = self.w3.eth.chain_id
+        deployment_path = DEPLOYMENTS_DIR / f"{chain_id}.json"
+        if not deployment_path.exists():
+            raise RuntimeError(f"no deployment for chainId {chain_id}: {deployment_path}")
+        self.deployment = json.loads(deployment_path.read_text())
 
         self.analyzer = OracleManipulationAnalyzer(
             chain_id=self.deployment["chainId"],
@@ -224,13 +231,17 @@ class Agent:
                 if q.representative.tee_attestation_hash.startswith("0x")
                 else q.representative.tee_attestation_hash
             )
+            priority_gwei = self.cfg.priority_gas_price_gwei
+            if priority_gwei is None:
+                priority_gwei = 2.0 if self.deployment["chainId"] == 16602 else 0.1
+            priority_wei = int(priority_gwei * 1e9)
             try:
                 tx = self.guardian.functions.pause(q.sigs, q.finding_hash, tee_hash).build_transaction({
                     "from": self.eth_address,
                     "nonce": self.w3.eth.get_transaction_count(self.eth_address),
                     "gas": 500_000,
-                    "maxFeePerGas": self.w3.eth.gas_price + Web3.to_wei(self.cfg.priority_gas_price_gwei, "gwei"),
-                    "maxPriorityFeePerGas": Web3.to_wei(self.cfg.priority_gas_price_gwei, "gwei"),
+                    "maxFeePerGas": self.w3.eth.gas_price + priority_wei,
+                    "maxPriorityFeePerGas": priority_wei,
                     "chainId": self.deployment["chainId"],
                 })
                 signed_tx = Account.sign_transaction(tx, self.private_key)
