@@ -1,0 +1,595 @@
+<!--
+  Klaxon — single-file rescue demo (video aid only).
+
+  Purpose: a clean visual the camera can cut to during the submission
+  video. The CLI is the real product; this page exists so judges who
+  can't read terminal output still see what's happening.
+
+  How to use:
+    Open in a browser. Press [R] or click "Run rescue" to play the
+    full 25-second sequence on a fixed 1080-friendly canvas. Press [I]
+    to return to idle. No data dependency, no chain polling, no API.
+
+  Built for the camera, not for users.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klaxon — rescue demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0b0d;
+    --surface: #111114;
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --dim: #71717a;
+    --accent: #ef4444;
+    --safe: #10b981;
+    --watch: #f59e0b;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Geist', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  body {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr 88px;
+  }
+
+  /* Top status bar */
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'Geist', sans-serif;
+    color: var(--text);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-size: 16px;
+  }
+  .brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(239,68,68,0.5);
+    animation: heartbeat 1600ms var(--ease) infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    50%      { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+  }
+  .topbar .meta { display: flex; gap: 24px; }
+  .topbar .meta span strong { color: var(--text); margin-right: 4px; font-weight: 500; }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .live-badge::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1200ms steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* Stage */
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 0;
+  }
+  .canvas {
+    position: relative;
+    border-right: 1px solid var(--line);
+    overflow: hidden;
+  }
+  svg.organism { width: 100%; height: 100%; display: block; }
+
+  .controls {
+    position: absolute;
+    bottom: 24px; left: 24px; right: 24px;
+    display: flex; gap: 12px;
+    z-index: 10;
+  }
+  button {
+    appearance: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 150ms var(--ease), border-color 150ms var(--ease);
+  }
+  button:hover { background: #18181b; border-color: var(--muted); }
+  button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0a0b0d;
+    font-weight: 600;
+  }
+  button.primary:hover { background: #f87171; }
+
+  /* Beat log */
+  .log {
+    background: var(--surface);
+    padding: 24px 24px 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .log h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .beat {
+    display: grid;
+    grid-template-columns: 64px 80px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+  }
+  .beat.show { opacity: 1; transform: translateY(0); }
+  .beat .time { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .beat .label { font-weight: 600; letter-spacing: 0.02em; }
+  .beat .body { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .label.detect  { color: var(--watch); }
+  .label.attest  { color: #c084fc; }
+  .label.gossip  { color: #93c5fd; }
+  .label.quorum  { color: #67e8f9; }
+  .label.kh      { color: #93c5fd; }
+  .label.paused  { color: var(--safe); }
+  .label.attack  { color: var(--accent); }
+  .label.payout  { color: var(--safe); }
+
+  /* Bottom ticker */
+  .ticker {
+    border-top: 1px solid var(--line);
+    overflow: hidden;
+    position: relative;
+    display: flex; align-items: center;
+  }
+  .ticker .label {
+    flex-shrink: 0;
+    padding: 0 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-right: 1px solid var(--line);
+    height: 100%;
+    display: flex; align-items: center;
+  }
+  .ticker .tape {
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    animation: ticker 60s linear infinite;
+    will-change: transform;
+  }
+  .ticker .tape .item { padding: 0 32px; }
+  .ticker .tape .item .amount { color: var(--safe); margin-right: 4px; }
+  .ticker .tape .item .agent { color: var(--text); margin-right: 4px; }
+  .ticker .tape .item .time { color: var(--dim); margin-left: 4px; }
+  @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .ticker .tape { animation: none; } .brand .dot { animation: none; } }
+
+  /* Organism layer */
+  .protocol-core { transition: fill 600ms var(--ease), filter 600ms var(--ease); }
+  .core-ring     { transition: stroke 600ms var(--ease), stroke-opacity 600ms var(--ease); }
+  .agent-node    { transition: filter 400ms var(--ease); }
+  .agent-ring    { transition: stroke 400ms var(--ease), stroke-opacity 400ms var(--ease); }
+  .edge          { stroke: var(--line); stroke-width: 1; transition: stroke 400ms var(--ease); }
+  .pulse {
+    fill: var(--accent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .pulse.fire {
+    animation: pulse 800ms var(--ease) forwards;
+  }
+  @keyframes pulse {
+    0%   { opacity: 0; r: 4; }
+    20%  { opacity: 1; }
+    100% { opacity: 0; r: 6; }
+  }
+
+  /* Quorum sweep ring */
+  .quorum-ring {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    opacity: 0;
+    transform-origin: 50% 50%;
+  }
+  .quorum-ring.fire {
+    animation: quorum 1400ms var(--ease) forwards;
+  }
+  @keyframes quorum {
+    0%   { opacity: 0; r: 80; stroke-width: 0.5; }
+    50%  { opacity: 0.9; stroke-width: 2; }
+    100% { opacity: 0; r: 240; stroke-width: 0.5; }
+  }
+
+  /* Caption overlay */
+  .caption {
+    position: absolute;
+    top: 24px; left: 24px; right: 24px;
+    pointer-events: none;
+  }
+  .caption .beat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .caption h1 {
+    font-family: 'Geist', sans-serif;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text);
+    max-width: 600px;
+    transition: color 400ms var(--ease);
+  }
+  .caption.danger h1 { color: var(--accent); }
+  .caption.safe   h1 { color: var(--safe); }
+
+  /* node label */
+  .node-text {
+    font-family: 'JetBrains Mono', monospace;
+    fill: var(--muted);
+    font-size: 11px;
+  }
+  .node-id {
+    font-family: 'Geist', sans-serif;
+    fill: var(--text);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .agent-node, .edge, .protocol-core, .core-ring, .agent-ring, .caption h1 { transition: none; }
+    .pulse.fire, .quorum-ring.fire { animation: none; opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="dot" aria-hidden="true"></span>klaxon · rescue demo</div>
+  <div class="meta">
+    <span><strong>chain</strong> Base Sepolia</span>
+    <span><strong>pool</strong> 0x923d…Fb45</span>
+    <span><strong>guardian</strong> 0xD9d5…785b</span>
+    <span><strong>quorum</strong> 3-of-3</span>
+  </div>
+  <div class="live-badge">live capture</div>
+</header>
+
+<main class="stage">
+  <section class="canvas">
+    <div class="caption" id="caption">
+      <div class="beat-label" id="beat-label">IDLE</div>
+      <h1 id="caption-text">The protocol is calm. The swarm watches.</h1>
+    </div>
+    <svg class="organism" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#fafafa" stop-opacity="0.18" />
+          <stop offset="60%" stop-color="#fafafa" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="dangerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#ef4444" stop-opacity="0.35" />
+          <stop offset="60%" stop-color="#ef4444" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+
+      <!-- mesh edges between agents -->
+      <line id="edge-ab" class="edge" x1="240" y1="180" x2="560" y2="180" />
+      <line id="edge-bc" class="edge" x1="560" y1="180" x2="400" y2="460" />
+      <line id="edge-ac" class="edge" x1="240" y1="180" x2="400" y2="460" />
+      <line id="edge-ap" class="edge" x1="240" y1="180" x2="400" y2="300" stroke-dasharray="3 4" />
+      <line id="edge-bp" class="edge" x1="560" y1="180" x2="400" y2="300" stroke-dasharray="3 4" />
+      <line id="edge-cp" class="edge" x1="400" y1="460" x2="400" y2="300" stroke-dasharray="3 4" />
+
+      <!-- protocol core -->
+      <circle cx="400" cy="300" r="80" fill="url(#coreGlow)" id="core-glow" />
+      <circle cx="400" cy="300" r="44" class="protocol-core" id="protocol-core" fill="#18181b" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+      <circle cx="400" cy="300" r="62" class="core-ring" id="core-ring" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+      <text x="400" y="298" text-anchor="middle" class="node-text" font-size="10" fill="#71717a" letter-spacing="2">PROTOCOL</text>
+      <text x="400" y="316" text-anchor="middle" class="node-id" id="protocol-status" style="fill:#fafafa;">ACTIVE</text>
+
+      <!-- agent A -->
+      <g id="node-a">
+        <circle cx="240" cy="180" r="34" class="agent-node" id="ring-a" fill="#18181b" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+        <circle cx="240" cy="180" r="48" class="agent-ring" id="halo-a" fill="none" stroke="rgba(239,68,68,0.0)" stroke-width="2" />
+        <text x="240" y="178" text-anchor="middle" class="node-id">A</text>
+        <text x="240" y="196" text-anchor="middle" class="node-text" font-size="9" letter-spacing="1.5" id="status-a">IDLE</text>
+        <circle class="pulse" cx="240" cy="180" r="4" id="pulse-a" />
+      </g>
+
+      <!-- agent B -->
+      <g id="node-b">
+        <circle cx="560" cy="180" r="34" class="agent-node" id="ring-b" fill="#18181b" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+        <circle cx="560" cy="180" r="48" class="agent-ring" id="halo-b" fill="none" stroke="rgba(239,68,68,0.0)" stroke-width="2" />
+        <text x="560" y="178" text-anchor="middle" class="node-id">B</text>
+        <text x="560" y="196" text-anchor="middle" class="node-text" font-size="9" letter-spacing="1.5" id="status-b">IDLE</text>
+        <circle class="pulse" cx="560" cy="180" r="4" id="pulse-b" />
+      </g>
+
+      <!-- agent C -->
+      <g id="node-c">
+        <circle cx="400" cy="460" r="34" class="agent-node" id="ring-c" fill="#18181b" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+        <circle cx="400" cy="460" r="48" class="agent-ring" id="halo-c" fill="none" stroke="rgba(239,68,68,0.0)" stroke-width="2" />
+        <text x="400" y="458" text-anchor="middle" class="node-id">C</text>
+        <text x="400" y="476" text-anchor="middle" class="node-text" font-size="9" letter-spacing="1.5" id="status-c">IDLE</text>
+        <circle class="pulse" cx="400" cy="460" r="4" id="pulse-c" />
+      </g>
+
+      <!-- KeeperHub icon (appears at fire time) -->
+      <g id="keeperhub" opacity="0" transform="translate(640, 460)">
+        <rect x="-50" y="-22" width="100" height="44" rx="6" fill="#18181b" stroke="rgba(147, 197, 253, 0.4)" />
+        <text x="0" y="-3" text-anchor="middle" class="node-text" font-size="9" letter-spacing="1.5" fill="#93c5fd">KEEPERHUB</text>
+        <text x="0" y="13" text-anchor="middle" class="node-id" font-size="11" fill="#93c5fd">RELAYER</text>
+      </g>
+
+      <!-- quorum sweep ring -->
+      <circle id="quorum-ring" class="quorum-ring" cx="400" cy="300" r="80" />
+    </svg>
+
+    <div class="controls">
+      <button class="primary" id="btn-run">▶ Run rescue</button>
+      <button id="btn-reset">Reset</button>
+      <span style="margin-left:auto; align-self:center; font-family:'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);">
+        press [r] to run · [i] to reset
+      </span>
+    </div>
+  </section>
+
+  <aside class="log">
+    <h3>beat log</h3>
+    <div id="beats" style="display:flex;flex-direction:column;gap:0;flex:1;overflow:hidden;"></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;border-top:1px solid var(--line);padding-top:8px;">
+      sequence ≈ 25s · all values mirror live testnet rescue
+    </div>
+  </aside>
+</main>
+
+<footer class="ticker" aria-hidden="true">
+  <div class="label">x402 payouts</div>
+  <div class="tape" id="tape">
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent A</span> · 0xfdba…d5f7 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent B</span> · 0x8a13…7015 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent C</span> · 0x9f2c…1c41 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent A</span> · 0x73be…91ee <span class="time">2m ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent C</span> · 0x4e21…aaaa <span class="time">2m ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent B</span> · 0xc0ff…2222 <span class="time">2m ago</span></span>
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent A</span> · 0xfdba…d5f7 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent B</span> · 0x8a13…7015 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.083 USDC</span> → <span class="agent">agent C</span> · 0x9f2c…1c41 <span class="time">12s ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent A</span> · 0x73be…91ee <span class="time">2m ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent C</span> · 0x4e21…aaaa <span class="time">2m ago</span></span>
+    <span class="item"><span class="amount">+0.041 USDC</span> → <span class="agent">agent B</span> · 0xc0ff…2222 <span class="time">2m ago</span></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const beats = $('beats');
+  const captionLabel = $('beat-label');
+  const captionText = $('caption-text');
+  const captionEl = $('caption');
+  const pCore = $('protocol-core');
+  const pStatus = $('protocol-status');
+  const pGlow = $('core-glow');
+
+  function setStatus(agent, label, color = 'rgba(255,255,255,0.18)') {
+    $(`status-${agent}`).textContent = label;
+    $(`ring-${agent}`).setAttribute('stroke', color);
+  }
+  function halo(agent, color) {
+    $(`halo-${agent}`).setAttribute('stroke', color);
+  }
+  function firePulse(agent) {
+    const el = $(`pulse-${agent}`);
+    el.classList.remove('fire');
+    void el.offsetWidth;
+    el.classList.add('fire');
+  }
+  function setEdge(id, color, opacity = 1) {
+    const el = $(id);
+    el.setAttribute('stroke', color);
+    el.setAttribute('stroke-opacity', opacity);
+  }
+  function setCaption(label, text, mode = '') {
+    captionLabel.textContent = label;
+    captionText.textContent = text;
+    captionEl.classList.remove('danger', 'safe');
+    if (mode) captionEl.classList.add(mode);
+  }
+  function logBeat(time, label, labelClass, body) {
+    const row = document.createElement('div');
+    row.className = 'beat';
+    row.innerHTML = `<span class="time">${time}</span><span class="label ${labelClass}">${label}</span><span class="body">${body}</span>`;
+    beats.appendChild(row);
+    requestAnimationFrame(() => row.classList.add('show'));
+    while (beats.children.length > 11) beats.removeChild(beats.firstChild);
+  }
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function reset() {
+    beats.innerHTML = '';
+    setCaption('IDLE', 'The protocol is calm. The swarm watches.', '');
+    pCore.setAttribute('fill', '#18181b');
+    pCore.setAttribute('stroke', 'rgba(255,255,255,0.18)');
+    pStatus.textContent = 'ACTIVE';
+    pStatus.style.fill = '#fafafa';
+    pGlow.setAttribute('fill', 'url(#coreGlow)');
+    ['a','b','c'].forEach(a => {
+      setStatus(a, 'IDLE', 'rgba(255,255,255,0.18)');
+      halo(a, 'rgba(239,68,68,0)');
+    });
+    ['edge-ab','edge-bc','edge-ac'].forEach(id => setEdge(id, 'rgba(255,255,255,0.08)', 1));
+    ['edge-ap','edge-bp','edge-cp'].forEach(id => setEdge(id, 'rgba(255,255,255,0.06)', 1));
+    $('keeperhub').setAttribute('opacity', '0');
+    $('quorum-ring').classList.remove('fire');
+  }
+
+  let running = false;
+  async function run() {
+    if (running) return;
+    running = true;
+    reset();
+
+    // 0–2s: idle settle
+    await delay(800);
+
+    // 2s: attacker bumps oracle (block N)
+    setCaption('BLOCK 40,727,350', 'Attacker bumps the kCOL/USD oracle 1 → 10. Pool revalues collateral.', 'danger');
+    pCore.setAttribute('fill', '#1a0a0a');
+    pCore.setAttribute('stroke', 'var(--accent)');
+    pStatus.textContent = 'AT RISK';
+    pStatus.style.fill = '#ef4444';
+    pGlow.setAttribute('fill', 'url(#dangerGlow)');
+    logBeat('14:43:51', 'ATTACK', 'attack', 'oracle.bumpPrice 1e18 → 1e19  tx 0x201604eb…');
+    await delay(1800);
+
+    // 4s: agents detect (staggered for realism)
+    setCaption('DETECT', 'Three independent agents see the same anomaly on chain.', 'danger');
+    setStatus('a', 'DETECT', 'var(--watch)'); halo('a', 'rgba(245,158,11,0.4)'); firePulse('a');
+    logBeat('14:43:52', 'DETECT', 'detect', '[A] oracle_manipulation ratio=10x severity=HIGH');
+    await delay(450);
+    setStatus('b', 'DETECT', 'var(--watch)'); halo('b', 'rgba(245,158,11,0.4)'); firePulse('b');
+    logBeat('14:43:52', 'DETECT', 'detect', '[B] oracle_manipulation ratio=10x severity=HIGH');
+    await delay(450);
+    setStatus('c', 'DETECT', 'var(--watch)'); halo('c', 'rgba(245,158,11,0.4)'); firePulse('c');
+    logBeat('14:43:52', 'DETECT', 'detect', '[C] oracle_manipulation ratio=10x severity=HIGH');
+    await delay(900);
+
+    // 6s: TEE attestation
+    setCaption('ATTEST', 'Each agent gets a TEE-signed second opinion from 0G Compute.', 'danger');
+    ['a','b','c'].forEach((a, i) => {
+      setTimeout(() => {
+        setStatus(a, 'ATTEST', '#c084fc');
+        halo(a, 'rgba(192, 132, 252, 0.45)');
+      }, i * 280);
+    });
+    logBeat('14:44:05', 'ATTEST', 'attest', '0G Compute · qwen-2.5-7b-instruct · dstack signer 0x83df4b8e…');
+    await delay(1700);
+
+    // 8s: gossip across mesh
+    setCaption('GOSSIP', 'Findings cross the AXL mesh. Each agent hears the other two.', 'danger');
+    setEdge('edge-ab', 'rgba(147,197,253,0.6)', 1);
+    setEdge('edge-bc', 'rgba(147,197,253,0.6)', 1);
+    setEdge('edge-ac', 'rgba(147,197,253,0.6)', 1);
+    ['a','b','c'].forEach((a, i) => setTimeout(() => firePulse(a), 100 + i * 200));
+    logBeat('14:44:08', 'GOSSIP', 'gossip', 'A → {B,C} · B → {A,C} · C → {A,B} · all sigs verified');
+    await delay(1500);
+
+    // 10s: quorum forms
+    setCaption('QUORUM', '3-of-3 distinct authorized signatures on the same finding hash.', 'danger');
+    ['a','b','c'].forEach(a => { setStatus(a, 'VOTE', '#67e8f9'); halo(a, 'rgba(103,232,249,0.55)'); });
+    setEdge('edge-ab', '#67e8f9', 0.9); setEdge('edge-bc', '#67e8f9', 0.9); setEdge('edge-ac', '#67e8f9', 0.9);
+    const ring = $('quorum-ring'); ring.classList.remove('fire'); void ring.offsetWidth; ring.classList.add('fire');
+    logBeat('14:44:10', 'QUORUM', 'quorum', 'hash 0x622e2a05…1bf4  ·  3 signers  ·  TEE attested');
+    await delay(1700);
+
+    // 12s: KeeperHub fires
+    setCaption('FIRE', 'KeeperHub relayer submits Guardian.pause(sigs, hash, teeHash).', 'danger');
+    $('keeperhub').setAttribute('opacity', '1');
+    setEdge('edge-cp', '#93c5fd', 1);
+    logBeat('14:44:11', 'KH-FIRE', 'kh', 'execution h3srgda3oqncc333gula9 · relayer 0xc90e35…fa84');
+    await delay(1500);
+
+    // 14s: pause lands, pool flips green
+    setCaption('PAUSED — PROTOCOL SAFE', 'Pool.paused() = true at block 40,727,373. Drain reverts on next call.', 'safe');
+    pCore.setAttribute('fill', '#0a1a14');
+    pCore.setAttribute('stroke', 'var(--safe)');
+    pStatus.textContent = 'PAUSED';
+    pStatus.style.fill = '#10b981';
+    pGlow.setAttribute('fill', 'url(#coreGlow)');
+    ['a','b','c'].forEach(a => { setStatus(a, 'GUARD', 'var(--safe)'); halo(a, 'rgba(16,185,129,0.4)'); });
+    logBeat('14:44:14', 'PAUSED', 'paused', 'tx 0xfdba589e…5f7b · block 40,727,373');
+    await delay(1400);
+
+    // 16s: drain attempt fails
+    setCaption('DRAIN BLOCKED', 'Attacker drain reverts with IsPaused(). $50,000 saved.', 'safe');
+    logBeat('14:44:16', 'DRAIN-X', 'attack', 'attacker.borrow(50_000 kDBT) → revert IsPaused() ✓');
+    await delay(1500);
+
+    // 18s: bounty payouts
+    setCaption('BOUNTY SPLIT', 'x402 session pays each contributing agent 0.083 USDC.', 'safe');
+    ['A','B','C'].forEach((id, i) => {
+      setTimeout(() => logBeat('14:44:18', 'PAYOUT', 'payout', `agent ${id} · +0.083 USDC · session 0x9c2d…1c41`), i * 250);
+    });
+    await delay(1800);
+
+    // 22s: settle
+    setCaption('SAFE', 'Subscription tier covered. Reputation +1 per agent on next manifest update.', 'safe');
+    await delay(2400);
+
+    running = false;
+  }
+
+  $('btn-run').addEventListener('click', run);
+  $('btn-reset').addEventListener('click', () => { reset(); running = false; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') run();
+    if (e.key === 'i' || e.key === 'I') { reset(); running = false; }
+  });
+})();
+</script>
+</body>
+</html>

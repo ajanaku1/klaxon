@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "klaxon"
+version = "0.1.0"
+description = "Decentralized 24/7 exploit-protection swarm. Three bonded agents, one whistle, an autonomous protocol pause."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Klaxon" }]
+
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "eth-account>=0.13",
+    "eth-utils>=4",
+    "pydantic>=2",
+    "requests>=2.31",
+    "web3>=7",
+]
+
+[project.scripts]
+klaxon = "klaxon.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["klaxon*"]
+exclude = ["tests*", "axl*", "contracts*", "manifests*", "og-compute*", "og-storage*", "keeperhub*"]
