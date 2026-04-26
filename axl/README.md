@@ -39,16 +39,34 @@ cd axl && ./bin/node -config node-c-config.json
 
 ## Broadcast pattern
 
-AXL has no native broadcast primitive. To broadcast a signed finding to all peers:
+AXL has no native broadcast primitive, and `/topology["peers"]` lists *direct TCP links* — for our nodes that's the Gensyn bootstrap servers, not the other agents in the swarm. Yggdrasil routes by IPv6 across the mesh, so to broadcast to other agents we keep a roster of authorized AXL pubkeys (`agent-roster.json`) and `/send` to each.
 
 ```python
-topology = requests.get(f"http://127.0.0.1:{api_port}/topology").json()
-for peer in topology["peers"]:
+roster = json.load(open("axl/agent-roster.json"))
+for agent in roster["agents"]:
+    if agent["axlPubkey"] == self_pubkey:
+        continue
     requests.post(
-        f"http://127.0.0.1:{api_port}/send",
-        headers={"X-Destination-Peer-Id": peer["public_key"]},
+        f"http://127.0.0.1:{my_api_port}/send",
+        headers={"X-Destination-Peer-Id": agent["axlPubkey"]},
         data=signed_payload_bytes,
     )
 ```
 
-See `agents/axl_client.py` (lands Day 4) for the full helper.
+See `agents/axl_client.py` for the full helper.
+
+## Recv semantics
+
+`/recv` is a single poll, not a long-poll:
+- `200 OK` with `X-From-Peer-Id` header + body when a message is queued
+- `204 No Content` when the inbox is empty
+
+Agents poll on a loop (e.g. 100 ms) and process each `200` response.
+
+## Config gotchas
+
+The JSON file is decoded twice — once by Yggdrasil's config parser (`PrivateKeyPath`, `Peers`, `Listen` — PascalCase) and once by AXL's `ApiConfig` (`api_port`, `tcp_port`, `router_port`, `a2a_port` — **snake_case, not** `APIPort`). Mixed-case fields are silently ignored.
+
+`tcp_port` is the **gVisor netstack port**, not a host OS port — every node uses the default 7000 even on the same host, because each runs its own userspace network stack tied to its own Yggdrasil IPv6. Only `api_port` (the HTTP API) needs to differ per node when running multiple nodes locally.
+
+The `-listen` CLI flag overrides the *Yggdrasil P2P listen URI*, not the HTTP API port. Use `api_port` in JSON for the HTTP port.

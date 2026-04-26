@@ -11,11 +11,12 @@
 
 ## Resume point
 
-> **Current day**: End of Day 3 (Sun Apr 26) — contracts deployed + Day 3 hard gate cleared on testnet
-> **Last completed**: Foundry stack written + tested (11/11 forge tests passing). All six contracts deployed to 0G Chain Galileo (chainId 16602): Guardian `0xeF93...6691`, Pool `0x51A3...A18c`, Oracle `0xD0F9...22A9`, AgentINFT `0x5312...9353`, kCOL `0x2A24...Faa8D`, kDBT `0x8620...300D`. Three iNFTs minted to canonical agent addresses. Attacker.s.sol broadcast in three steps on testnet — bumped oracle 1000×, drained 50,000 kDBT (5% of pool liquidity) in the next block. Pool state verified onchain: liquidity 1e24 → 9.5e23, attacker debt 5e22, oracle price 1e21. README addresses block + chainscan links added.
+> **Current day**: Day 4 (Mon Apr 27) — AXL transport layer up, signer/analyzer next
+> **Last completed**: Day 3 deploy on 0G Galileo (chainId 16602) — Guardian `0xeF93...6691`, Pool `0x51A3...A18c`, Oracle `0xD0F9...22A9`, AgentINFT `0x5312...9353`, kCOL `0x2A24...Faa8D`, kDBT `0x8620...300D`; multi-block exploit reproduced on chain (50_000 kDBT drained). Day 4: all three AXL nodes (A/B/C on 9002/9012/9022) running locally; `agents/axl_client.py` + `smoke_test_axl.py` verified A → {B, C} signed broadcast over the Yggdrasil mesh; `axl/agent-roster.json` maps ETH→AXL pubkeys for the swarm.
+> **Day 2 config bugs found + fixed in Day 4**: (1) all three node configs used PascalCase `APIPort` which Go's JSON decoder silently ignored — switched to snake_case `api_port`; (2) `axl/README.md` broadcast pattern iterated `/topology["peers"]` which is *direct TCP links only* (Gensyn bootstrap nodes in our setup), not other swarm agents — replaced with roster-based broadcast; (3) `X-From-Peer-Id` from `/recv` is Yggdrasil-IPv6-derived form (~14-byte pubkey prefix + 0x7fff... padding), not the full Ed25519 key — added prefix matching in `AxlClient.pubkey_to_agent_id`. AXL `tcp_port` is a gVisor netstack port (per-node userspace), so all 3 nodes default to 7000 even on one host without colliding.
 > **Decision (Day 3 noon)**: Agent finding signatures = **secp256k1 / ecrecover**. Reasons: 0G Chain is EVM, ecrecover is native; Ed25519 needs a non-standard precompile; agents already hold ETH keys for x402 payouts. AXL transport keys remain Ed25519 — separate concern.
 > **Gas note**: 0G Galileo enforces a 2 gwei priority fee minimum. Deploy/attacker scripts that hit "transaction gas price below minimum" need `--priority-gas-price 2gwei`.
-> **Next action**: Day 4 — stand up AXL node 2, write `axl_client.py` (broadcast/listen against the AXL HTTP API), build the reentrancy analyzer that watches `debug_traceTransaction`, wire a 3-of-N aggregator that calls Guardian.pause directly (KeeperHub swap-in is Day 6).
+> **Next action**: Finish Day 4 — write `agents/finding.py` (Pydantic Finding + canonical hash + ETH-prefixed personal_sign matching Guardian.verifyQuorum), reentrancy analyzer 1 (ingests `debug_traceTransaction`), per-node aggregator (collects 3 sigs on same hash → submits `Guardian.pause(sigs, hash, 0x0)` via RPC). Hard gate: re-run attacker → analyzer detects → finding gossips → quorum → on-chain pause → drain reverts.
 > **Blockers**: USER tasks status — KeeperHub registered ✓, Gensyn Discord joined ✓, 0G Chain funded ✓, Base Sepolia funded for 3 agents ✓. Still pending: fund deployer on Base Sepolia for x402 settlement, deposit 3 OG to a 0G Compute provider on Day 5, reserve domain + X handle.
 
 Update this block every time you pause/resume so a fresh Claude session can pick up without re-deriving context.
@@ -67,9 +68,9 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 
 **Objective**: two agent processes talking across two AXL nodes, emitting signed findings.
 
-- [ ] Stand up AXL node 2 (separate VM, separate Ed25519 key, peer with node 1)
-- [ ] Python helper `axl_client.py`: `broadcast(payload)` iterates `/topology`, POSTs signed payload to each peer via `/send`; `listen()` polls `/recv`
-- [ ] Test: `echo` bot from node A → received on node B. Commit as `smoke_test_axl.py`
+- [x] Stand up AXL node 2 (3 nodes A/B/C running locally on 9002/9012/9022 — single-host since AXL `tcp_port` is gVisor-internal)
+- [x] Python helper `axl_client.py`: `broadcast(payload)` iterates the swarm roster (`agent-roster.json`), POSTs signed payload to each peer via `/send`; `listen()` polls `/recv` (single-poll: 200/204)
+- [x] Test: `smoke_test_axl.py` — A broadcasts, B and C both receive with correct sender attribution. Verified on the live Yggdrasil mesh.
 - [ ] **Analyzer 1** — reentrancy detector (Python). Input: tx trace JSON from `debug_traceTransaction`. Output: `Finding { txHash, type, severity, evidence }`. Signed, broadcast via AXL.
 - [ ] Aggregator stub on each node: collects findings, when 3-of-N same-hash findings seen → calls Guardian `pause()` (direct RPC for now)
 
