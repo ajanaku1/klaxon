@@ -31,6 +31,7 @@ from aggregator import Aggregator, Quorum
 from analyzer_oracle import OracleManipulationAnalyzer, PriceBumpedEvent
 from axl_client import AxlClient, load_roster
 from finding import Finding
+from og_compute import Attestation, summarize as og_summarize
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEPLOYMENT_PATH = REPO_ROOT / "contracts" / "deployments" / "16602.json"
@@ -61,6 +62,8 @@ class AgentConfig:
     rpc_url: str
     poll_interval_s: float = 1.5
     priority_gas_price_gwei: int = 2  # 0G Galileo minimum
+    enable_tee: bool = True  # set False to skip 0G Compute summarization for fast tests
+    expected_tee_signing_addresses: frozenset[str] = frozenset()
 
 
 def _load_eth_key(agent_id: str) -> tuple[str, str]:
@@ -106,6 +109,8 @@ class Agent:
         self.aggregator = Aggregator(
             authorized_signers=frozenset(a.eth_address.lower() for a in self.roster),
             quorum_size=3,
+            require_tee=cfg.enable_tee,
+            expected_tee_signing_addresses=frozenset(s.lower() for s in cfg.expected_tee_signing_addresses),
         )
 
         self.guardian = self.w3.eth.contract(
@@ -149,16 +154,42 @@ class Agent:
         unsigned = self.analyzer.analyze_event(evt)
         if unsigned is None:
             return
-        signed = unsigned.sign(self.private_key)
         self.log.info(
             "DETECTED %s ratio=%dx tx=%s block=%d",
-            signed.finding_type, signed.evidence["ratio"], evt.tx_hash, evt.block_number,
+            unsigned.finding_type, unsigned.evidence["ratio"], evt.tx_hash, evt.block_number,
         )
+        # Attach a TEE-attested summary before signing. Receivers gate quorum
+        # on Finding.verify_tee_attestation() — no provider round-trip needed.
+        if self.cfg.enable_tee:
+            try:
+                att = self._attest(unsigned)
+                unsigned = unsigned.model_copy(update={
+                    "tee_attestation_hash": att.tee_attestation_hash,
+                    "tee_summary": att.summary,
+                    "tee_text": att.tee_text,
+                    "tee_signature": att.tee_signature,
+                    "tee_signing_address": att.tee_signing_address,
+                })
+                self.log.info("TEE attested: signer=%s verified=%s", att.tee_signing_address, att.verified)
+            except Exception as e:
+                self.log.warning("TEE attestation failed (%s) — gossip will be rejected by receivers", e)
+        signed = unsigned.sign(self.private_key)
         # Self-vote first
         self._ingest(signed)
         # Then gossip to peers
         results = self.axl.broadcast(signed.to_wire())
         self.log.info("broadcast: %s", results)
+
+    def _attest(self, f: Finding) -> Attestation:
+        prompt = (
+            "Summarize this exploit finding in one sentence for a human "
+            "operator. Be concrete about what the attacker did and why it "
+            "matters.\n\n" + f.model_dump_json(include={
+                "chain_id", "pool_address", "finding_type", "severity",
+                "tx_hash", "block_number", "evidence",
+            })
+        )
+        return og_summarize(prompt, max_tokens=80, temperature=0.2)
 
     # ----- listen loop -----
 

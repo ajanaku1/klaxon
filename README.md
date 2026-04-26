@@ -21,14 +21,18 @@ Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and 
 
 | Contract | Address |
 |---|---|
-| `Guardian` | [`0xeF934C78b7C40fe642019E3Bc8575e7c3FFe6691`](https://chainscan-galileo.0g.ai/address/0xeF934C78b7C40fe642019E3Bc8575e7c3FFe6691) |
-| `VulnerableLendingPool` | [`0x51A3f25C391C9CDf1421198e94E3aBB71b96A18c`](https://chainscan-galileo.0g.ai/address/0x51A3f25C391C9CDf1421198e94E3aBB71b96A18c) |
-| `ManipulableOracle` | [`0xD0F93DD3e498C456A95cc91d1FBcB8dB24b122A9`](https://chainscan-galileo.0g.ai/address/0xD0F93DD3e498C456A95cc91d1FBcB8dB24b122A9) |
-| `AgentINFT` | [`0x5312C37b38Bc3C9f1c47998142d6dE386b599353`](https://chainscan-galileo.0g.ai/address/0x5312C37b38Bc3C9f1c47998142d6dE386b599353) |
-| Demo collateral (kCOL) | [`0x2A24185251951b260a07a90075aAd64b932FAa8D`](https://chainscan-galileo.0g.ai/address/0x2A24185251951b260a07a90075aAd64b932FAa8D) |
-| Demo debt asset (kDBT) | [`0x8620d53C70e761b08c6140dc8455c876B8f6300D`](https://chainscan-galileo.0g.ai/address/0x8620d53C70e761b08c6140dc8455c876B8f6300D) |
+| `Guardian` | [`0xca9F973A0a6F8BA1DD7aFEF87f3bD6799578491B`](https://chainscan-galileo.0g.ai/address/0xca9F973A0a6F8BA1DD7aFEF87f3bD6799578491B) |
+| `VulnerableLendingPool` | [`0x18A3a151D907a6a1C7A2BCa4011208637e858981`](https://chainscan-galileo.0g.ai/address/0x18A3a151D907a6a1C7A2BCa4011208637e858981) |
+| `ManipulableOracle` | [`0xe7F30E20C17B3573823b046d2db8d060bDE0bDc1`](https://chainscan-galileo.0g.ai/address/0xe7F30E20C17B3573823b046d2db8d060bDE0bDc1) |
+| `AgentINFT` | [`0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17`](https://chainscan-galileo.0g.ai/address/0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17) |
+| Demo collateral (kCOL) | [`0x8cB9f2e55D5395cb7ac0A96add75C10Daf8C1a36`](https://chainscan-galileo.0g.ai/address/0x8cB9f2e55D5395cb7ac0A96add75C10Daf8C1a36) |
+| Demo debt asset (kDBT) | [`0x51D08B1173f11d666d686F18fA47e9357d2aBc8E`](https://chainscan-galileo.0g.ai/address/0x51D08B1173f11d666d686F18fA47e9357d2aBc8E) |
 
-**Day 3 hard gate cleared (2026-04-26)**: attacker bumped the oracle 1000× in block N, then drained 50,000 kDBT from the pool in block N+1 — exactly the detection window the swarm has to close.
+**Day 3 hard gate cleared (2026-04-26)**: attacker bumped the oracle 1000× in block N, then drained 50,000 kDBT from the pool in block N+1 — exactly the detection window the swarm has to close. (Day 3 set deployed at `0xeF93...6691` etc; redeployed Day 5 to clear paused state for the TEE-attested rerun.)
+
+**Day 4 hard gate cleared (2026-04-26)**: three independent Python agents on three AXL nodes detected an oracle bump, signed `Finding`s with their secp256k1 keys, gossiped over the Yggdrasil mesh, formed 3-of-N quorum, and raced to submit `Guardian.pause`. One won, two reverted with `AlreadyProcessed`. Subsequent attacker `drain()` reverted with `IsPaused()`.
+
+**Day 5 hard gate cleared (2026-04-26)**: same flow but every `Finding` carries a real TEE attestation envelope from 0G Compute Sealed Inference (qwen-2.5-7b-instruct on a dstack-attested provider). Receivers gate quorum on local enclave-signature verification — no provider round-trip. The on-chain `FindingAttested` event now commits to a real `keccak256(tee_text)` instead of the Day-4 placeholder zero. Winning tx: [`0x5f6db174...`](https://chainscan-galileo.0g.ai/tx/0x5f6db17485f3e32dfb4beac855effc25bc6d71e32977d8b3c53db9920b148030).
 
 ---
 

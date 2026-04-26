@@ -24,6 +24,13 @@ def main():
     p.add_argument("--agent", required=True, choices=["a", "b", "c"], help="roster id")
     p.add_argument("--rpc", default=DEFAULT_RPC, help="0G Chain RPC URL")
     p.add_argument("--poll", type=float, default=1.5, help="oracle poll interval (s)")
+    p.add_argument("--no-tee", action="store_true", help="skip 0G Compute attestation (faster e2e tests)")
+    p.add_argument(
+        "--expected-tee-signer",
+        action="append",
+        default=[],
+        help="lowercase 0x-hex of an accepted TEE signing address; pass multiple for redundancy",
+    )
     args = p.parse_args()
 
     logging.basicConfig(
@@ -32,7 +39,13 @@ def main():
         level=logging.INFO,
     )
 
-    Agent(AgentConfig(agent_id=args.agent, rpc_url=args.rpc, poll_interval_s=args.poll)).start()
+    Agent(AgentConfig(
+        agent_id=args.agent,
+        rpc_url=args.rpc,
+        poll_interval_s=args.poll,
+        enable_tee=not args.no_tee,
+        expected_tee_signing_addresses=frozenset(args.expected_tee_signer),
+    )).start()
 
 
 if __name__ == "__main__":

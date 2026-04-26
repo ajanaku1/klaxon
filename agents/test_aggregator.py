@@ -48,7 +48,7 @@ def signed_findings_from_all_three():
 
 
 def test_quorum_fires_after_third_distinct_signer():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     fs = signed_findings_from_all_three()
     assert agg.add_finding(fs[0]) is None
     assert agg.add_finding(fs[1]) is None
@@ -60,7 +60,7 @@ def test_quorum_fires_after_third_distinct_signer():
 
 
 def test_quorum_only_fires_once_per_hash():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     fs = signed_findings_from_all_three()
     for f in fs:
         agg.add_finding(f)
@@ -69,7 +69,7 @@ def test_quorum_only_fires_once_per_hash():
 
 
 def test_duplicate_signer_does_not_double_count():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     aid, addr, pk = KEYS[0]
     f1 = make_finding(aid, addr).sign(pk)
     aid2, addr2, pk2 = KEYS[1]
@@ -84,7 +84,7 @@ def test_duplicate_signer_does_not_double_count():
 
 
 def test_unauthorized_signer_rejected():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     intruder = make_finding(agent_id="x", agent_addr=INTRUDER_ADDR).sign(INTRUDER_PK)
     assert agg.add_finding(intruder) is None
     aid, addr, pk = KEYS[0]
@@ -99,7 +99,7 @@ def test_forged_agent_address_rejected():
     """A peer that rewrites agent_address (so signature recovers to someone
     else) gets rejected — the aggregator cross-checks recover(sig) against
     the claimed agent_address."""
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     aid, addr, pk = KEYS[0]
     legit = make_finding(aid, addr).sign(pk)
     forged = legit.model_copy(update={"agent_id": "b", "agent_address": KEYS[1][1]})
@@ -107,14 +107,90 @@ def test_forged_agent_address_rejected():
 
 
 def test_unsigned_finding_rejected():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     f = make_finding("a", KEYS[0][1])
     assert f.signature is None
     assert agg.add_finding(f) is None
 
 
+def _signed_with_real_tee(agent_id, agent_addr, pk):
+    """Build a Finding with a TEE envelope from a live 0G Compute call,
+    then sign with the agent key. Used by the TEE-gating tests below.
+    Skipped if og-compute deps not installed."""
+    from og_compute import TSX, summarize
+    if not TSX.exists():
+        return None
+    f = make_finding(agent_id, agent_addr)
+    att = summarize("Say 'klaxon-aggregator-tee' and nothing else.", max_tokens=12, temperature=0)
+    f = f.model_copy(update={
+        "tee_attestation_hash": att.tee_attestation_hash,
+        "tee_summary": att.summary,
+        "tee_text": att.tee_text,
+        "tee_signature": att.tee_signature,
+        "tee_signing_address": att.tee_signing_address,
+    })
+    return f.sign(pk)
+
+
+def test_tee_gate_rejects_finding_with_no_envelope():
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=True)
+    aid, addr, pk = KEYS[0]
+    f = make_finding(aid, addr).sign(pk)  # no TEE fields
+    assert agg.add_finding(f) is None
+
+
+def test_tee_gate_rejects_finding_with_tampered_text():
+    aid, addr, pk = KEYS[0]
+    f = _signed_with_real_tee(aid, addr, pk)
+    if f is None:
+        print("SKIP: og-compute not installed")
+        return
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=True)
+    tampered = f.model_copy(update={"tee_text": (f.tee_text or "") + "TAMPERED"})
+    # Need to re-sign because finding_hash didn't change but we want a clean signature flow:
+    tampered = tampered.sign(pk)
+    assert agg.add_finding(tampered) is None
+
+
+def test_tee_gate_rejects_unknown_tee_signing_address():
+    aid, addr, pk = KEYS[0]
+    f = _signed_with_real_tee(aid, addr, pk)
+    if f is None:
+        print("SKIP: og-compute not installed")
+        return
+    agg = Aggregator(
+        authorized_signers=AUTHORIZED,
+        quorum_size=3,
+        require_tee=True,
+        expected_tee_signing_addresses=frozenset({"0x" + "00" * 20}),  # deliberately wrong
+    )
+    assert agg.add_finding(f) is None
+
+
+def test_tee_gate_accepts_real_attestation():
+    fs = []
+    for aid, addr, pk in KEYS:
+        f = _signed_with_real_tee(aid, addr, pk)
+        if f is None:
+            print("SKIP: og-compute not installed")
+            return
+        fs.append(f)
+    expected_tee = frozenset({fs[0].tee_signing_address.lower()})
+    agg = Aggregator(
+        authorized_signers=AUTHORIZED,
+        quorum_size=3,
+        require_tee=True,
+        expected_tee_signing_addresses=expected_tee,
+    )
+    assert agg.add_finding(fs[0]) is None
+    assert agg.add_finding(fs[1]) is None
+    q = agg.add_finding(fs[2])
+    assert q is not None
+    assert len(q.sigs) == 3
+
+
 def test_different_findings_get_separate_buckets():
-    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3)
+    agg = Aggregator(authorized_signers=AUTHORIZED, quorum_size=3, require_tee=False)
     f_block42 = [make_finding(aid, addr, block_number=42).sign(pk) for aid, addr, pk in KEYS]
     f_block43 = [make_finding(aid, addr, block_number=43).sign(pk) for aid, addr, pk in KEYS]
     # Mix two votes from each — neither should reach quorum

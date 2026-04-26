@@ -36,7 +36,9 @@ class Quorum:
 @dataclass
 class Aggregator:
     authorized_signers: frozenset[str]  # lowercase 0x-hex
+    expected_tee_signing_addresses: frozenset[str] = field(default_factory=frozenset)
     quorum_size: int = 3
+    require_tee: bool = True
     _by_hash: dict[bytes, dict[str, tuple[bytes, Finding]]] = field(default_factory=dict)
     _fired: set[bytes] = field(default_factory=set)
 
@@ -55,6 +57,17 @@ class Aggregator:
             return None
         if signer not in self.authorized_signers:
             return None
+
+        # TEE gate: when enabled, the Finding must carry a verifiable enclave
+        # attestation, and its signing_address must match a known good TEE
+        # identity (so a malicious agent can't sign their own fake quote).
+        if self.require_tee:
+            if not f.verify_tee_attestation():
+                return None
+            if self.expected_tee_signing_addresses:
+                tee_signer = (f.tee_signing_address or "").lower()
+                if tee_signer not in self.expected_tee_signing_addresses:
+                    return None
 
         h = f.finding_hash()
         if h in self._fired:

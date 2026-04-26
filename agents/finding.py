@@ -52,8 +52,14 @@ class Finding(BaseModel):
     signature: str | None = Field(default=None, description="65-byte hex sig over findingHash")
     tee_attestation_hash: str = Field(
         default="0x" + "00" * 32,
-        description="32-byte hex hash of the 0G Compute enclave quote — Day 5 wires this in",
+        description="bytes32 keccak256(tee_text) — committed to on-chain via Guardian.FindingAttested",
     )
+    # The full TEE envelope. Receivers verify locally (no provider round-trip)
+    # before counting this Finding toward quorum.
+    tee_summary: str | None = Field(default=None, description="human-readable summary signed by the enclave")
+    tee_text: str | None = Field(default=None, description="raw text the enclave signed (commitment string)")
+    tee_signature: str | None = Field(default=None, description="65-byte hex secp256k1 sig over tee_text")
+    tee_signing_address: str | None = Field(default=None, description="enclave's on-chain identity")
 
     def canonical_dict(self) -> dict:
         return {
@@ -96,6 +102,27 @@ class Finding(BaseModel):
             return self.recover_signer() == self.agent_address.lower()
         except Exception:
             return False
+
+    def verify_tee_attestation(self) -> bool:
+        """True iff this Finding carries a TEE envelope, the signature
+        recovers to the claimed signing_address, and the attestation hash
+        commits to the signed text. Receivers call this before counting
+        the Finding toward quorum — proves an authentic enclave attested
+        the summary, no provider round-trip required."""
+        if not (self.tee_text and self.tee_signature and self.tee_signing_address):
+            return False
+        try:
+            signer = Account.recover_message(
+                encode_defunct(text=self.tee_text),
+                signature=self.tee_signature,
+            )
+            if signer.lower() != self.tee_signing_address.lower():
+                return False
+        except Exception:
+            return False
+        # Attestation hash must commit to the same text the enclave signed.
+        expected = "0x" + keccak(self.tee_text.encode()).hex()
+        return expected.lower() == self.tee_attestation_hash.lower()
 
     def to_wire(self) -> bytes:
         """Serialize for AXL gossip."""

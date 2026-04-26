@@ -1,11 +1,10 @@
 /**
- * Klaxon — smoke-test 0G Compute Sealed Inference.
+ * Klaxon — smoke-test 0G Compute Sealed Inference + signature fetch.
  *
- * Sends "summarize this exploit finding in one sentence for a human operator"
- * (the actual Day 5 prompt) and prints the model's response. Verifies the
- * round-trip works end-to-end so Day 5 can wire it into the agent runtime.
- *
- * Run:  node_modules/.bin/tsx test-inference.ts
+ * Calls /chat/completions, captures the chat ID, then probes
+ * /v1/proxy/signature/<chatID>?model=... directly to see exactly what
+ * the provider returns. processResponse internally fails when that GET
+ * is non-200, with the unhelpful "getting signature error".
  */
 
 import { config as loadDotenv } from "dotenv";
@@ -31,30 +30,16 @@ async function main() {
 
   const md = await broker.inference.getServiceMetadata(PROVIDER!);
   console.log("provider endpoint:", md.endpoint);
-  console.log("model            :", md.model);
 
-  const findingPayload = {
-    chain_id: 16602,
-    finding_type: "oracle_manipulation",
-    pool: "0x51A3f25C391C9CDf1421198e94E3aBB71b96A18c",
-    evidence: { old_price: "5e21", new_price: "5e22", ratio: 10 },
-    block_number: 29923363,
-  };
-  const userPrompt =
-    "Summarize this exploit finding in one sentence for a human operator. " +
-    "Be concrete about what the attacker did and why it matters.\n\n" +
-    JSON.stringify(findingPayload);
-
+  const userPrompt = "Say 'klaxon-attestation-test' and nothing else.";
   const headers = await broker.inference.getRequestHeaders(PROVIDER!, userPrompt);
-
   const body = {
     model: md.model,
     messages: [{ role: "user", content: userPrompt }],
-    temperature: 0.2,
-    max_tokens: 80,
+    temperature: 0,
+    max_tokens: 16,
   };
 
-  console.log("calling /chat/completions...");
   const res = await fetch(`${md.endpoint}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
@@ -66,16 +51,44 @@ async function main() {
     process.exit(1);
   }
   const content = json?.choices?.[0]?.message?.content ?? "";
-  const chatId = json?.id;
-  console.log("\n--- model output ---");
-  console.log(content);
-  console.log("---");
+  // The verifiable chat ID for processResponse comes from the ZG-Res-Key
+  // response header, NOT the OpenAI-style `id` in the body.
+  const chatId =
+    res.headers.get("ZG-Res-Key") ||
+    res.headers.get("zg-res-key") ||
+    json?.id;
+  console.log("ZG-Res-Key header:", res.headers.get("ZG-Res-Key"));
+  console.log("body.id          :", json?.id);
+  console.log("chatId chosen    :", chatId);
+  console.log("content :", JSON.stringify(content));
 
-  // Verify the response was signed by the enclave (this is the TEE attestation
-  // step Klaxon's quorum logic needs).
+  // svc.url is the base; signature endpoint = ${svc.url}/v1/proxy/signature/<chatID>?model=<model>
+  // svc.url is endpoint without "/v1/proxy" suffix
+  const baseUrl = md.endpoint.replace(/\/v1\/proxy$/, "");
+  const sigUrl = `${baseUrl}/v1/proxy/signature/${chatId}?model=${md.model}`;
+  console.log("sigUrl  :", sigUrl);
+
+  // Try a couple of retry-after-delay attempts — the provider may take
+  // a moment to persist the signed response.
+  for (let i = 0; i < 5; i++) {
+    const sigRes = await fetch(sigUrl, { headers: { "Content-Type": "application/json" } });
+    console.log(`[try ${i + 1}] sig HTTP ${sigRes.status}`);
+    if (sigRes.ok) {
+      const sigJson: any = await sigRes.json();
+      console.log("sig body:", JSON.stringify(sigJson, null, 2).slice(0, 500));
+      break;
+    } else {
+      const text = await sigRes.text();
+      console.log("sig body:", text.slice(0, 300));
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  // Now drive processResponse with the (correct) arg order and time it
+  console.log("\ncalling broker.inference.processResponse(provider, chatID, content)...");
   try {
-    const valid = await broker.inference.processResponse(PROVIDER!, content, chatId);
-    console.log("processResponse (TEE verification) ->", valid);
+    const valid = await broker.inference.processResponse(PROVIDER!, chatId, content);
+    console.log("processResponse ->", valid);
   } catch (e: any) {
     console.warn("processResponse failed:", e?.message ?? e);
   }
