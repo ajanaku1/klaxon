@@ -19,20 +19,29 @@ Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and 
 
 ### Deployed contracts (0G Chain Galileo testnet, chainId 16602)
 
+### Active deploy: Base Sepolia (chainId 84532)
+
+The Guardian, Pool, Oracle, and demo ERC-20s moved to Base Sepolia on Day 6 because KeeperHub does not list 0G Galileo in its chain catalog. AgentINFT remains on 0G Chain (Day 7).
+
 | Contract | Address |
 |---|---|
-| `Guardian` | [`0xca9F973A0a6F8BA1DD7aFEF87f3bD6799578491B`](https://chainscan-galileo.0g.ai/address/0xca9F973A0a6F8BA1DD7aFEF87f3bD6799578491B) |
-| `VulnerableLendingPool` | [`0x18A3a151D907a6a1C7A2BCa4011208637e858981`](https://chainscan-galileo.0g.ai/address/0x18A3a151D907a6a1C7A2BCa4011208637e858981) |
-| `ManipulableOracle` | [`0xe7F30E20C17B3573823b046d2db8d060bDE0bDc1`](https://chainscan-galileo.0g.ai/address/0xe7F30E20C17B3573823b046d2db8d060bDE0bDc1) |
-| `AgentINFT` | [`0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17`](https://chainscan-galileo.0g.ai/address/0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17) |
-| Demo collateral (kCOL) | [`0x8cB9f2e55D5395cb7ac0A96add75C10Daf8C1a36`](https://chainscan-galileo.0g.ai/address/0x8cB9f2e55D5395cb7ac0A96add75C10Daf8C1a36) |
-| Demo debt asset (kDBT) | [`0x51D08B1173f11d666d686F18fA47e9357d2aBc8E`](https://chainscan-galileo.0g.ai/address/0x51D08B1173f11d666d686F18fA47e9357d2aBc8E) |
+| `Guardian` | [`0xD9d5E92393A6E5D238d3e7f35F384BdbaCdC785b`](https://sepolia.basescan.org/address/0xD9d5E92393A6E5D238d3e7f35F384BdbaCdC785b) |
+| `VulnerableLendingPool` | [`0x923dEF178E5C058af9cd795c6bf76A76ceb9Fb45`](https://sepolia.basescan.org/address/0x923dEF178E5C058af9cd795c6bf76A76ceb9Fb45) |
+| `ManipulableOracle` | [`0xC8470BDDF0038eCde3A9FB4E79B41AEf71f4D1f0`](https://sepolia.basescan.org/address/0xC8470BDDF0038eCde3A9FB4E79B41AEf71f4D1f0) |
+| Demo collateral (kCOL) | [`0x01282bdE26e1d338aEA37a47204848e7413B4182`](https://sepolia.basescan.org/address/0x01282bdE26e1d338aEA37a47204848e7413B4182) |
+| Demo debt asset (kDBT) | [`0x02F7eBb00DcdEB6bbF3D8a749C9E168006C47834`](https://sepolia.basescan.org/address/0x02F7eBb00DcdEB6bbF3D8a749C9E168006C47834) |
+
+### Historical deploys (0G Galileo, chainId 16602)
+
+Day 3 through Day 5 ran on 0G Chain. The Day 5 deploy at Guardian `0xca9F97...491B` is preserved on chain for the AInfluencer-style on-chain attestation trail (`FindingAttested(0x968c9487..., 0xa2d17599...)` on tx [`0x5f6db174`](https://chainscan-galileo.0g.ai/tx/0x5f6db17485f3e32dfb4beac855effc25bc6d71e32977d8b3c53db9920b148030)). The AgentINFT contract at [`0xdfcE8Bc5...3B17`](https://chainscan-galileo.0g.ai/address/0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17) on 0G Galileo is what Day 7 will mint into.
 
 **Day 3 hard gate cleared (2026-04-26)**: attacker bumped the oracle 1000× in block N, then drained 50,000 kDBT from the pool in block N+1 — exactly the detection window the swarm has to close. (Day 3 set deployed at `0xeF93...6691` etc; redeployed Day 5 to clear paused state for the TEE-attested rerun.)
 
 **Day 4 hard gate cleared (2026-04-26)**: three independent Python agents on three AXL nodes detected an oracle bump, signed `Finding`s with their secp256k1 keys, gossiped over the Yggdrasil mesh, formed 3-of-N quorum, and raced to submit `Guardian.pause`. One won, two reverted with `AlreadyProcessed`. Subsequent attacker `drain()` reverted with `IsPaused()`.
 
-**Day 5 hard gate cleared (2026-04-26)**: same flow but every `Finding` carries a real TEE attestation envelope from 0G Compute Sealed Inference (qwen-2.5-7b-instruct on a dstack-attested provider). Receivers gate quorum on local enclave-signature verification — no provider round-trip. The on-chain `FindingAttested` event now commits to a real `keccak256(tee_text)` instead of the Day-4 placeholder zero. Winning tx: [`0x5f6db174...`](https://chainscan-galileo.0g.ai/tx/0x5f6db17485f3e32dfb4beac855effc25bc6d71e32977d8b3c53db9920b148030).
+**Day 5 hard gate cleared (2026-04-26)**: same flow but every `Finding` carries a real TEE attestation envelope from 0G Compute Sealed Inference (qwen-2.5-7b-instruct on a dstack-attested provider). Receivers gate quorum on local enclave-signature verification, no provider round-trip. The on-chain `FindingAttested` event now commits to a real `keccak256(tee_text)` instead of the Day-4 placeholder zero. Winning tx: [`0x5f6db174...`](https://chainscan-galileo.0g.ai/tx/0x5f6db17485f3e32dfb4beac855effc25bc6d71e32977d8b3c53db9920b148030).
+
+**Day 6 hard gate cleared (2026-04-26)**: pause now flows through KeeperHub. Each agent submits a workflow execution via the KeeperHub MCP `execute_workflow` tool; KeeperHub's relayer wallet (`0xc90e35...fa84`) signs and submits `Guardian.pause` on Base Sepolia. Agent C won the race; A and B reverted with `AlreadyProcessed`. Pool paused, drain blocked.
 
 ---
 

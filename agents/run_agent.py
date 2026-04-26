@@ -25,6 +25,7 @@ def main():
     p.add_argument("--rpc", default=DEFAULT_RPC, help="0G Chain RPC URL")
     p.add_argument("--poll", type=float, default=1.5, help="oracle poll interval (s)")
     p.add_argument("--no-tee", action="store_true", help="skip 0G Compute attestation (faster e2e tests)")
+    p.add_argument("--no-keeperhub", action="store_true", help="skip KeeperHub, send pause direct via RPC")
     p.add_argument(
         "--expected-tee-signer",
         action="append",
@@ -45,6 +46,7 @@ def main():
         poll_interval_s=args.poll,
         enable_tee=not args.no_tee,
         expected_tee_signing_addresses=frozenset(args.expected_tee_signer),
+        use_keeperhub=not args.no_keeperhub,
     )).start()
 
 

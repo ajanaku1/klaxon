@@ -1,0 +1,8 @@
+{
+  "workflow_id": "1swcv2sbszrgj6z4rrgd5",
+  "webhook_url": "https://app.keeperhub.com/api/webhooks/klaxon-rescue",
+  "guardian": "0xD9d5E92393A6E5D238d3e7f35F384BdbaCdC785b",
+  "chainId": 84532,
+  "createdAt": "2026-04-26T14:57:21.154Z",
+  "_note": "guardian field is informational only; agents/keeperhub.py reads the latest guardian from contracts/deployments/<chainId>.json at runtime and PATCHes the workflow's contractAddress before each execution."
+}

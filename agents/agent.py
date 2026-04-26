@@ -31,6 +31,7 @@ from aggregator import Aggregator, Quorum
 from analyzer_oracle import OracleManipulationAnalyzer, PriceBumpedEvent
 from axl_client import AxlClient, load_roster
 from finding import Finding
+from keeperhub import KeeperHubClient
 from og_compute import Attestation, summarize as og_summarize
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -67,6 +68,7 @@ class AgentConfig:
     priority_gas_price_gwei: float | None = None
     enable_tee: bool = True  # set False to skip 0G Compute summarization for fast tests
     expected_tee_signing_addresses: frozenset[str] = frozenset()
+    use_keeperhub: bool = True  # set False to send pause via direct RPC
 
 
 def _load_eth_key(agent_id: str) -> tuple[str, str]:
@@ -124,6 +126,13 @@ class Agent:
             address=Web3.to_checksum_address(self.deployment["guardian"]),
             abi=[GUARDIAN_PAUSE_ABI],
         )
+        self.keeperhub: KeeperHubClient | None = None
+        if cfg.use_keeperhub:
+            try:
+                self.keeperhub = KeeperHubClient()
+                self.log.info("KeeperHub workflow id: %s", self.keeperhub.workflow_id)
+            except Exception as e:
+                self.log.warning("KeeperHub init failed (%s); falling back to direct RPC", e)
         self._fire_lock = threading.Lock()
         self._stop = threading.Event()
 
@@ -221,15 +230,35 @@ class Agent:
 
     def _fire(self, q: Quorum):
         with self._fire_lock:
+            tee_hash_hex = q.representative.tee_attestation_hash
+            if not tee_hash_hex.startswith("0x"):
+                tee_hash_hex = "0x" + tee_hash_hex
+            tee_hash = bytes.fromhex(tee_hash_hex[2:])
+            sigs_hex = ["0x" + s.hex() for s in q.sigs]
+            finding_hash_hex = "0x" + q.finding_hash.hex()
+
+            if self.keeperhub is not None:
+                self.log.info(
+                    "QUORUM hash=%s signers=%s — submitting via KeeperHub",
+                    finding_hash_hex[:18],
+                    [s[:10] for s in q.signers],
+                )
+                try:
+                    eid = self.keeperhub.execute(sigs_hex, finding_hash_hex, tee_hash_hex)
+                    result = self.keeperhub.wait_for_execution(eid, timeout_s=90)
+                    self.log.info(
+                        "KeeperHub execution %s -> %s%s",
+                        eid, result.status,
+                        f" (err: {result.error})" if result.error else "",
+                    )
+                    return
+                except Exception as e:
+                    self.log.error("KeeperHub submit failed (%s); falling back to direct RPC", e)
+
             self.log.info(
-                "QUORUM hash=0x%s signers=%s — submitting Guardian.pause",
-                q.finding_hash.hex()[:16],
+                "QUORUM hash=%s signers=%s — submitting Guardian.pause direct",
+                finding_hash_hex[:18],
                 [s[:10] for s in q.signers],
-            )
-            tee_hash = bytes.fromhex(
-                q.representative.tee_attestation_hash[2:]
-                if q.representative.tee_attestation_hash.startswith("0x")
-                else q.representative.tee_attestation_hash
             )
             priority_gwei = self.cfg.priority_gas_price_gwei
             if priority_gwei is None:
