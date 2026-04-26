@@ -17,6 +17,19 @@ Built for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) (Apri
 
 Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and current status.
 
+### Deployed contracts (0G Chain Galileo testnet, chainId 16602)
+
+| Contract | Address |
+|---|---|
+| `Guardian` | [`0xeF934C78b7C40fe642019E3Bc8575e7c3FFe6691`](https://chainscan-galileo.0g.ai/address/0xeF934C78b7C40fe642019E3Bc8575e7c3FFe6691) |
+| `VulnerableLendingPool` | [`0x51A3f25C391C9CDf1421198e94E3aBB71b96A18c`](https://chainscan-galileo.0g.ai/address/0x51A3f25C391C9CDf1421198e94E3aBB71b96A18c) |
+| `ManipulableOracle` | [`0xD0F93DD3e498C456A95cc91d1FBcB8dB24b122A9`](https://chainscan-galileo.0g.ai/address/0xD0F93DD3e498C456A95cc91d1FBcB8dB24b122A9) |
+| `AgentINFT` | [`0x5312C37b38Bc3C9f1c47998142d6dE386b599353`](https://chainscan-galileo.0g.ai/address/0x5312C37b38Bc3C9f1c47998142d6dE386b599353) |
+| Demo collateral (kCOL) | [`0x2A24185251951b260a07a90075aAd64b932FAa8D`](https://chainscan-galileo.0g.ai/address/0x2A24185251951b260a07a90075aAd64b932FAa8D) |
+| Demo debt asset (kDBT) | [`0x8620d53C70e761b08c6140dc8455c876B8f6300D`](https://chainscan-galileo.0g.ai/address/0x8620d53C70e761b08c6140dc8455c876B8f6300D) |
+
+**Day 3 hard gate cleared (2026-04-26)**: attacker bumped the oracle 1000× in block N, then drained 50,000 kDBT from the pool in block N+1 — exactly the detection window the swarm has to close.
+
 ---
 
 ## What Is Klaxon?

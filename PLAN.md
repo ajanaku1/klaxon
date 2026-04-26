@@ -11,10 +11,12 @@
 
 ## Resume point
 
-> **Current day**: End of Day 2 (Sat Apr 25)
-> **Last completed**: Repo init, monorepo scaffold, specs/architecture.md, README/AI_USAGE/FEEDBACK stubs, Foundry installed (via foundryup + libusb), Go 1.26 installed via brew, AXL binary built (`axl/bin/node`, pinned to Go 1.25.5 via AXL Makefile), 3 Ed25519 keypairs generated, 3 node configs written, AXL smoke-test passed (boots + connects to Gensyn mesh).
-> **Next action**: Day 3 — init Foundry project in `contracts/`, write Guardian.sol + VulnerableLendingPool.sol + AgentINFT.sol, deploy to 0G Chain testnet. Decide Ed25519-vs-secp256k1 signature scheme by Day 3 noon.
-> **Blockers**: USER tasks outstanding — KeeperHub registered (✓), 0G needs no signup (wallet-based auth via build.0g.ai/compute). Still pending: join Gensyn Discord/Telegram, fund testnet wallets on 0G Chain + Base Sepolia, deposit 3 OG to a 0G Compute provider account, reserve domain + X handle.
+> **Current day**: End of Day 3 (Sun Apr 26) — contracts deployed + Day 3 hard gate cleared on testnet
+> **Last completed**: Foundry stack written + tested (11/11 forge tests passing). All six contracts deployed to 0G Chain Galileo (chainId 16602): Guardian `0xeF93...6691`, Pool `0x51A3...A18c`, Oracle `0xD0F9...22A9`, AgentINFT `0x5312...9353`, kCOL `0x2A24...Faa8D`, kDBT `0x8620...300D`. Three iNFTs minted to canonical agent addresses. Attacker.s.sol broadcast in three steps on testnet — bumped oracle 1000×, drained 50,000 kDBT (5% of pool liquidity) in the next block. Pool state verified onchain: liquidity 1e24 → 9.5e23, attacker debt 5e22, oracle price 1e21. README addresses block + chainscan links added.
+> **Decision (Day 3 noon)**: Agent finding signatures = **secp256k1 / ecrecover**. Reasons: 0G Chain is EVM, ecrecover is native; Ed25519 needs a non-standard precompile; agents already hold ETH keys for x402 payouts. AXL transport keys remain Ed25519 — separate concern.
+> **Gas note**: 0G Galileo enforces a 2 gwei priority fee minimum. Deploy/attacker scripts that hit "transaction gas price below minimum" need `--priority-gas-price 2gwei`.
+> **Next action**: Day 4 — stand up AXL node 2, write `axl_client.py` (broadcast/listen against the AXL HTTP API), build the reentrancy analyzer that watches `debug_traceTransaction`, wire a 3-of-N aggregator that calls Guardian.pause directly (KeeperHub swap-in is Day 6).
+> **Blockers**: USER tasks status — KeeperHub registered ✓, Gensyn Discord joined ✓, 0G Chain funded ✓, Base Sepolia funded for 3 agents ✓. Still pending: fund deployer on Base Sepolia for x402 settlement, deposit 3 OG to a 0G Compute provider on Day 5, reserve domain + X handle.
 
 Update this block every time you pause/resume so a fresh Claude session can pick up without re-deriving context.
 
@@ -27,9 +29,10 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 - [ ] Init repo `/Users/mac/Vibecoding/klaxon`, commit empty scaffold (Next.js dashboard + Hardhat/Foundry contracts + Python agents in monorepo layout)
 - [ ] Create `README.md` (stub), `AI_USAGE.md` (stub), `FEEDBACK.md` (empty, start logging as you go)
 - [x] Sign up at KeeperHub (`app.keeperhub.com`)
-- [ ] Join Gensyn Telegram/Discord for AXL support
-- [ ] Fund testnet wallet on 0G Chain testnet (faucet) and deposit 3 OG to a 0G Compute provider — wallet-based auth, no separate signup needed
-- [ ] Fund testnet wallet on Base Sepolia for x402 payments
+- [x] Join Gensyn Discord for AXL support
+- [x] Fund deployer wallet on 0G Chain testnet via faucet
+- [ ] Deposit 3 OG to a 0G Compute provider via broker SDK (Day 5 — not blocking until then)
+- [ ] Fund deployer + 3 agent wallets on Base Sepolia for x402 payments
 - [ ] Clone + build AXL Go binary locally (`github.com/gensyn-ai/axl`), run one node successfully, generate Ed25519 key
 - [ ] Skim `collaborative-autoresearch-demo` repo — reference for how AXL nodes talk
 - [ ] Write `specs/architecture.md` (1-pager with 3 contracts, 2 agents, 2 AXL nodes, data flow arrows) — commit as spec artifact
@@ -46,16 +49,17 @@ Update this block every time you pause/resume so a fresh Claude session can pick
 
 **Objective**: all Solidity done and deployed on 0G Chain testnet.
 
-- [ ] `Guardian.sol`: `pause()`, `sweepToRecovery(address)`, `verifyQuorum(bytes[] sigs, bytes32 findingHash)` (3-of-N signature verify), `revokeAuthorization()` owner kill switch, **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event emitted on every quorum-passing finding** (on-chain attestation trail — AInfluencer's 1st-place narrative hook applied to security)
-- [ ] `VulnerableLendingPool.sol`: deposit/borrow/liquidate with intentionally exploitable oracle dependency + reentrant withdraw. Exploit must take ≥2 txs (oracle manipulation block N, drain block N+1) so the pause window is real
-- [ ] `AgentINFT.sol` (ERC-7857): mint-only, `tokenURI` returns a 0G Storage root hash pointing to manifest JSON
-- [ ] Deploy all three to 0G Chain testnet, record addresses in `README.md`
-- [ ] Write `attacker.ts` — Foundry/Hardhat script that executes the multi-tx exploit. Confirm it drains funds on testnet.
+- [x] `Guardian.sol`: `pause()`, `sweepToRecovery(address)`, `verifyQuorum(bytes[] sigs, bytes32 findingHash)` (3-of-N signature verify), `revokeAuthorization()` owner kill switch, **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event emitted on every quorum-passing finding** (on-chain attestation trail — AInfluencer's 1st-place narrative hook applied to security)
+- [x] `VulnerableLendingPool.sol`: deposit/borrow/liquidate with intentionally exploitable oracle dependency + reentrant withdraw. Exploit must take ≥2 txs (oracle manipulation block N, drain block N+1) so the pause window is real
+- [x] `AgentINFT.sol` (ERC-7857): mint-only, `tokenURI` returns a 0G Storage root hash pointing to manifest JSON
+- [x] Deploy all six contracts to 0G Chain testnet, record addresses in `README.md` (Galileo chainId 16602; see deployments/16602.json)
+- [x] Write attacker script (`script/Attacker.s.sol`, `deposit/bump/drain` sigs) — broadcast on testnet, drained 50_000 kDBT confirmed onchain
+- [x] Forge test suite: quorum, replay, dedupe, unauthorized signer, exploit reproducibility (11/11 passing)
 - [ ] Commit with clear messages
 
 **Done when**: attacker script drains VulnerableLendingPool on testnet in a reproducible sequence, Guardian deployed, iNFT mint works from cast/foundry.
 
-**Risk**: Ed25519 signature recovery in Solidity needs a precompile or library. If 0G Chain doesn't support it, switch agent signatures to secp256k1 (`ecrecover`) — agents sign with ETH keys instead. **Decide by Day 3 noon.**
+**Risk**: Ed25519 signature recovery in Solidity needs a precompile or library. If 0G Chain doesn't support it, switch agent signatures to secp256k1 (`ecrecover`) — agents sign with ETH keys instead. **Decide by Day 3 noon.** → ✓ Decided: secp256k1. Same key reused for x402.
 
 ---
 
