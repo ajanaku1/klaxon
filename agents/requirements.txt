@@ -1,0 +1,6 @@
+eth-account==0.13.7
+eth-utils==6.0.0
+pydantic==2.13.3
+pydantic_core==2.46.3
+requests==2.33.1
+web3==7.15.0
