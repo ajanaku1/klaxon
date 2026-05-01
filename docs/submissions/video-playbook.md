@@ -1,7 +1,7 @@
 # Demo Video Playbook
 
-Single source of truth for the submission video. Use this tomorrow
-during recording. Total target: ≤ 3:30, hard cap 4:00.
+Plan for the submission video. Use during recording tomorrow.
+Total target: ≤ 3:30, hard cap 4:00.
 
 ---
 
@@ -99,15 +99,14 @@ attested. Card 3: race-safe.
 > Gensyn AXL; KeeperHub. Repo and live testnet receipts in the
 > description. When one finds it, a thousand answer."*
 
-**On screen:** final slide — repo URL, three sponsor logos.
+**On screen:** final slide. Repo URL, three sponsor logos.
 
 ---
 
 ## Architecture diagram (one slide, hold 30s)
 
-Use this exact ASCII as a visual or redraw in Excalidraw before
-recording. Do not over-design it; the diagram is the architecture
-itself.
+Use this ASCII as a visual or redraw in Excalidraw before recording.
+Do not over-design it; the diagram is the architecture itself.
 
 ```
                  0G Galileo                Base Sepolia
@@ -130,13 +129,13 @@ itself.
 ## Pacing notes (where takes typically slip)
 
 - **Don't read the demo beats.** The on-screen beat log already shows
-  them. Speak *over* the action, summarizing what's happening.
-- **Pause after "the protocol is paused before block N+1"** — let it
+  them. Speak over the action and summarize what's happening.
+- **Pause after "the protocol is paused before block N+1".** Let it
   land. Half a second of silence is fine.
 - **Cut the receipts segment if you're over 3:15.** The on-chain proof
   is in the description.
-- **Differentiators section is the easiest place to cut.** If you're
-  over 3:30, drop card 3 (race-safe) and end at "no trust in the swarm
+- **Differentiators is the easiest section to cut.** If you're over
+  3:30, drop card 3 (race-safe) and end at "no trust in the swarm
   operator."
 
 ## Camera cuts (what to show when)
@@ -147,8 +146,8 @@ itself.
 | 0:15 | Architecture slide | Hold full 30s |
 | 0:45 | demo.html | Press *Run rescue* AS the audio says "Here is a live rescue" |
 | 1:50 | demo.html | The sequence ends at ~1:10. Hold the final state for ~5s |
-| 1:55 | Terminal — `klaxon receipts` | Pre-staged, scroll once |
-| 2:15 | Basescan tab — the actual tx | Open in advance. Click the tx; show the FindingAttested event in the Logs tab |
+| 1:55 | Terminal, `klaxon receipts` | Pre-staged, scroll once |
+| 2:15 | Basescan tab, the actual tx | Open in advance. Click the tx; show the FindingAttested event in the Logs tab |
 | 2:30 | Differentiators slide | Three-card layout |
 | 3:00 | Final slide | Repo URL + sponsor logos |
 

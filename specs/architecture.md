@@ -1,12 +1,12 @@
 # Klaxon Architecture
 
-**Status**: Day 2 spec. Living document — update as components land.
+**Status**: Day 2 spec. Living document, updated as components land.
 
 ## One-sentence description
 
-An agent arena for DeFi exploit detection: bonded analyzer iNFTs (independently-operated, TEE-attested) compete to spot exploits, gossip signed findings over a P2P mesh, and — once 3-of-N quorum is reached — trigger a Guardian contract's `pause()` via a reliability-guaranteed execution layer. Winners earn bounty splits; false positives get slashed.
+An agent arena for DeFi exploit detection: bonded analyzer iNFTs (independently-operated, TEE-attested) compete to spot exploits, gossip signed findings over a P2P mesh, and once 3-of-N quorum is reached, trigger a Guardian contract's `pause()` via a reliability-guaranteed execution layer. Winners earn bounty splits; false positives get slashed.
 
-Mechanically a decentralized pause oracle. Framed as an arena because that is the shelf 0G judges already recognize from prior winners (Warriors AI-rena, swarm/agentic projects).
+Mechanically it's a decentralized pause oracle. We frame it as an arena because that's the shelf 0G judges already recognize from prior winners (Warriors AI-rena, swarm/agentic projects).
 
 ## System diagram (ASCII)
 
@@ -75,13 +75,13 @@ Mechanically a decentralized pause oracle. Framed as an arena because that is th
    - `sweepToRecovery(address recoveryVault)` — move protocol-owned funds to a preset recovery vault (protocol's own, never Klaxon's).
    - `verifyQuorum(bytes32 findingHash, bytes[] sigs)` — N-of-M signature verification. **Ed25519 if 0G Chain has the precompile, else secp256k1 via `ecrecover` (decision Day 3 noon).**
    - `revokeAuthorization()` — owner-only kill switch; protocol can disavow Klaxon in one tx.
-   - **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event** — emitted on every quorum-passing finding. Gives auditors and judges an on-chain proof trail anyone can verify on the 0G explorer. Each row in the dashboard finding feed links straight to the explorer tx.
+   - **`FindingAttested(bytes32 findingHash, bytes32 teeAttestationHash)` event** — emitted on every quorum-passing finding. Gives auditors and judges an on-chain proof trail that anyone can verify on the 0G explorer. Each row in the dashboard finding feed links straight to the explorer tx.
 
 2. **`VulnerableLendingPool.sol`** — demo target. A plausible-looking mini lending pool with:
    - Deposit / borrow / repay / liquidate
    - An oracle-dependent liquidation threshold
    - A reentrant withdraw path
-   - The exploit requires **≥2 txs**: manipulate the oracle in block N, drain in block N+1. This creates a real pause window.
+   - The exploit needs **≥2 txs**: manipulate the oracle in block N, drain in block N+1. That gives us a real pause window.
 
 3. **`AgentINFT.sol`** (ERC-7857) — mints each agent as an iNFT.
    - `tokenURI` returns a 0G Storage root hash
@@ -100,7 +100,7 @@ Two independent AXL nodes, each running:
 
 ### AXL nodes
 
-Two separate AXL Go binaries (different VMs or at minimum different ports). Each has:
+Two separate AXL Go binaries (different VMs, or at minimum different ports). Each has:
 - Ed25519 keypair in `axl/node-{a,b}.pem`
 - Node config in `axl/node-{a,b}-config.json`
 - Peered to each other via AXL's Yggdrasil overlay
@@ -115,14 +115,14 @@ Single workflow invoked by the aggregator on quorum:
 
 ### x402 bounty splits
 
-After successful pause, the aggregator (or Guardian-linked escrow) sends x402 payments to each participating agent's wallet. Using **x402 V2 session** so 3 splits reuse one session setup, not three.
+After a successful pause, the aggregator (or Guardian-linked escrow) sends x402 payments to each participating agent's wallet. We use **x402 V2 session** so 3 splits reuse one session setup instead of three.
 
 ## Data flow (rescue scenario)
 
 1. Attacker submits oracle-manipulation tx (block N).
 2. Analyzer 2 on Node A detects, calls 0G Compute for signed summary, broadcasts `Finding_1` over AXL.
 3. Analyzer 1 on Node B sees the related reentrancy pattern in the follow-up tx, broadcasts `Finding_2`.
-4. Both aggregators see both findings. Quorum: need 3-of-N sigs on the same `findingHash`. For demo, we'll have 3 agent keys signing the aggregated finding.
+4. Both aggregators see both findings. Quorum: 3-of-N sigs on the same `findingHash`. For the demo, 3 agent keys sign the aggregated finding.
 5. Aggregator invokes KeeperHub workflow → pause tx lands on 0G Chain → VulnerableLendingPool is paused **before block N+1 exploit lands**.
 6. Dashboard renders the replay: attacker's drain tx fails (pool paused); without Klaxon, it would have drained.
 7. x402 bounty splits paid to 3 agent wallets.
@@ -139,11 +139,11 @@ After successful pause, the aggregator (or Guardian-linked escrow) sends x402 pa
 ## Honest scope notes
 
 - **TEE attestation**: signs the LLM summary of a finding, not the raw analyzer detection. Mitigation: the analyzer code hash is committed in the iNFT manifest, so operators can verify the analyzer binary matches what the agent claims to run. True "detection-inside-TEE" is post-hackathon.
-- **Quorum**: demo shows 3 keys signing. Real deployments need ~20+ independent operators for meaningful decentralization — this is a mechanism demo, not a production deployment.
-- **Rescue window**: only exists for multi-block exploits. Atomic flash-loan drains finish in one block; Klaxon's pause won't land in time. This is why we lead with "pause oracle" (prevents the next exploit) rather than "rescue race" (physics-limited).
+- **Quorum**: the demo shows 3 keys signing. Real deployments need ~20+ independent operators for meaningful decentralization. This is a mechanism demo, not a production deployment.
+- **Rescue window**: only exists for multi-block exploits. Atomic flash-loan drains finish in one block; Klaxon's pause won't land in time. That's why we lead with "pause oracle" (prevents the next exploit) rather than "rescue race" (physics-limited).
 
 ## Open decisions
 
-- **Signature scheme** (Ed25519 vs secp256k1 for agent keys) — Day 3 noon based on 0G Chain precompile availability.
-- **Domain + X handle** — reserve by end of Day 3.
-- **Logomark** — commission or generate for video slide 1 (Day 9).
+- **Signature scheme** (Ed25519 vs secp256k1 for agent keys), Day 3 noon based on 0G Chain precompile availability.
+- **Domain + X handle**, reserve by end of Day 3.
+- **Logomark**, commission or generate for video slide 1 (Day 9).

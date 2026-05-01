@@ -1,90 +1,88 @@
 # AI Usage Attribution
 
 Per ETHGlobal Open Agents rules, this file documents where and how AI tools
-were used in the Klaxon project. It is structured to lead with the human
-contribution (what was decided and validated) before the per-file table
-(what was code-generated under direction), because the human-driven
-parts are what determined the architecture, prize-track integrations,
-and shipped behavior.
+were used in the Klaxon project. I lead with the human contribution (what
+I decided and validated) before the per-file table (what was code-generated
+under my direction), because the human-driven parts determined the
+architecture, prize-track integrations, and shipped behavior.
 
 ## Tools used
 
-- **Claude Code (Anthropic), Opus 4.7 1M context** — primary pair-
-  programmer for the entire build. Used not just as an autocomplete but
-  as an executor: read files, ran `forge`, ran the `klaxon` CLI, queried
-  on-chain state, edited code in place, and executed integration cycles.
-  Every committed file was read, reviewed, and edited by the human
-  before push.
+- **Claude Code (Anthropic), Opus 4.7 1M context**, the primary pair-
+  programmer for the build. I used it as an executor, not autocomplete: it
+  read files, ran `forge`, ran the `klaxon` CLI, queried on-chain state,
+  edited code in place, and executed integration cycles. I read, reviewed,
+  and edited every committed file before push.
 - **Editor:** VS Code (`.vscode/` is committed).
-- **Git commits:** authored by the human; no AI co-author trailer is
-  used in commit messages.
-- **No AI voiceover or TTS.** The demo video voiceover is human-recorded.
+- **Git commits:** I authored them myself, with no AI co-author trailer in
+  any commit message.
+- **No AI voiceover or TTS.** I recorded the demo video voiceover myself.
   ETHGlobal Open Agents explicitly prohibits AI-generated voice in the
   submission video.
 
 ## Direction artifacts (how the AI was steered)
 
 Klaxon was **not** built with a formal spec-driven framework like
-OpenSpec, Kiro, or spec-kit. AI direction is captured in three durable
-artifacts that are all committed to this repo:
+OpenSpec, Kiro, or spec-kit. AI direction lives in three artifacts, all
+committed to this repo:
 
-- [`PLAN.md`](./PLAN.md) — the day-by-day build plan with a "Resume
-  point" block updated at the end of every working session. The resume
-  block is the canonical record of what the human directed each day,
-  what the hard gates were, what was scope-cut, and which gotchas were
-  hit. A fresh AI session reads this block first to re-derive context.
-- [`specs/architecture.md`](./specs/architecture.md) — the original
-  one-pager (3 contracts, 3 agents, data flow). Drafted with AI from a
-  human-authored prompt, then iterated.
-- [`FEEDBACK.md`](./FEEDBACK.md) — gotcha log written *after* each
-  external-dependency fight (KeeperHub, 0G Compute SDK). Each issue
-  was reproduced live by the human before being committed; the file
-  doubles as the dual-audience submission for the KeeperHub Builder
-  Feedback Bounty and the 0G Compute SDK feedback section.
+- [`PLAN.md`](./PLAN.md), the day-by-day build plan with a "Resume
+  point" block I update at the end of every working session. The resume
+  block is the canonical record of what I directed each day, what the
+  hard gates were, what was scope-cut, and which gotchas I hit. A fresh
+  AI session reads this block first to re-derive context.
+- [`specs/architecture.md`](./specs/architecture.md), the original
+  one-pager (3 contracts, 3 agents, data flow). I drafted it with AI from
+  a prompt I wrote, then iterated.
+- [`FEEDBACK.md`](./FEEDBACK.md), a gotcha log I wrote *after* each
+  external-dependency fight (KeeperHub, 0G Compute SDK). I reproduced
+  every issue live before committing it. The file doubles as the dual-
+  audience submission for the KeeperHub Builder Feedback Bounty and the
+  0G Compute SDK feedback section.
 
-We also maintain a **local Claude memory file** at
-`~/.claude/projects/.../memory/` (outside this repo, not committed —
-it contains private session metadata) with two project entries:
+I also keep a **local Claude memory file** at
+`~/.claude/projects/.../memory/` (outside this repo, not committed,
+since it holds private session metadata) with two project entries:
 `klaxon.md` (concept spec snapshot) and `agent_keys.md` (key-management
-mistakes and lessons learned). All operational decisions in memory are
-mirrored into `PLAN.md` or `FEEDBACK.md` so the public record is
+mistakes and lessons learned). I mirror every operational decision from
+memory into `PLAN.md` or `FEEDBACK.md` so the public record is
 self-contained.
 
 ## Human contribution (what the AI did *not* decide)
 
-Architectural decisions — every one of these was human-authored after
-the AI proposed alternatives, and every one shaped what shipped:
+Architectural decisions. I authored every one of these after the AI
+proposed alternatives, and every one shaped what shipped:
 
 - Project ideation, prize-track selection (3-cap on 0G Track B + Gensyn
   AXL + KeeperHub), agent-arena framing, the *"when one finds it, a
   thousand answer"* tagline
-- **Pause-oracle vs full-rescue-first design** — chose pause-only for
-  hackathon scope; rescue/sweep deferred
-- **Race-safe execution** — every agent fires KeeperHub independently,
-  first wins, others revert with `AlreadyProcessed`. The naïve
-  designated-submitter design was AI-suggested and human-rejected
-  because it would have created a single point of failure
-- **Cross-chain split** — iNFT + 0G Compute on 0G Galileo, Guardian +
+- **Pause-oracle vs full-rescue-first design.** I chose pause-only for
+  hackathon scope; rescue/sweep deferred.
+- **Race-safe execution.** Every agent fires KeeperHub independently,
+  first wins, others revert with `AlreadyProcessed`. The AI suggested a
+  naive designated-submitter design and I rejected it because it would
+  have created a single point of failure.
+- **Cross-chain split.** iNFT + 0G Compute on 0G Galileo, Guardian +
   Pool + Oracle on Base Sepolia, after the Day-6 finding that
-  KeeperHub doesn't list 0G Galileo in its chain catalog. Decision
-  made by human, FEEDBACK Issue 1 written from that experience
-- **secp256k1 vs Ed25519 for finding signatures** — chose secp256k1 for
+  KeeperHub doesn't list 0G Galileo in its chain catalog. I made the
+  call and wrote FEEDBACK Issue 1 from that experience.
+- **secp256k1 vs Ed25519 for finding signatures.** I chose secp256k1 for
   cheap on-chain `ecrecover`; Ed25519 stays as AXL transport. Decision
-  made on Day 3 noon
-- **Two-key model for agent identity** — transport vs finding-signing.
-  Day-3 mistake (overwriting Day-2 funded keys) caught and recorded
-  in `agent_keys.md` memory + `PLAN.md`; led to the explicit "never
-  overwrite root .env" rule
-- **CLI-first pivot on Day 7** — killed the planned Next.js dashboard
-  after the human determined the product is a terminal tool, not a SaaS.
-  AI-generated three React proposals; human dropped all three and
-  redirected to a Typer CLI + single-file `demo.html`
-- **Per-agent TEE stagger (Day 8)** — human-diagnosed root cause of
-  cycle-3 flake (dstack 2-concurrent cap), AI implemented the
-  staggered-offset fix per the human's specification
-- **Mustache-template PATCH workaround for KeeperHub** — human
-  reproduced the bug live, AI implemented the per-execution PATCH
-  workaround to the human's design
+  made on Day 3 noon.
+- **Two-key model for agent identity:** transport vs finding-signing.
+  My Day-3 mistake (overwriting Day-2 funded keys) is recorded in
+  `agent_keys.md` memory and `PLAN.md`, and led to the explicit "never
+  overwrite root .env" rule.
+- **CLI-first pivot on Day 7.** I killed the planned Next.js dashboard
+  once I decided the product is a terminal tool, not a SaaS. AI generated
+  three React proposals, I dropped all three and redirected to a Typer
+  CLI plus single-file `demo.html`.
+- **Per-agent TEE stagger (Day 8).** I diagnosed the cycle-3 flake's
+  root cause (dstack 2-concurrent cap), AI implemented the staggered-
+  offset fix to my spec.
+- **Mustache-template PATCH workaround for KeeperHub.** I reproduced
+  the bug live, AI implemented the per-execution PATCH workaround to my
+  design.
 
 Operational work (entirely human):
 
@@ -92,7 +90,7 @@ Operational work (entirely human):
 - All agent and deployer key generation, custody, and on-chain
   funding txs
 - All deployer-account broadcast operations (`forge script
-  --broadcast`, etc.) — confirmed live before each one
+  --broadcast`, etc.), which I confirmed live before each one
 - KeeperHub workflow creation in the visual builder before the API
   reverse-engineering
 - Demo video script direction, recording, voiceover, editing
@@ -102,27 +100,27 @@ Critique and hole-poking (entirely human):
 
 - Corrected AI's initial assumption that KeeperHub is "Flashbots-like"
 - Corrected AI's initial assumption that x402 supports streaming
-  (it doesn't — discrete sessions only)
+  (it doesn't, discrete sessions only)
 - Corrected AI's initial assumption that AXL has native broadcast
-  (it doesn't — `/topology["peers"]` is direct TCP only; we
-  iterate a roster instead)
+  (it doesn't, `/topology["peers"]` is direct TCP only; I iterate a
+  roster instead)
 - Caught AI's GLM-5 hallucination in the original Tech Stack section
-  (provider catalog has Qwen 2.5 7B, not GLM-5)
-- Caught AI's overwriting of Day-2 root `.env` keys on Day 3 — led
+  (the provider catalog has Qwen 2.5 7B, not GLM-5)
+- Caught AI's overwriting of Day-2 root `.env` keys on Day 3, which led
   to the new "never overwrite an existing root .env field" rule
 
-**Rough split:** the human authored 100% of the architectural decisions
-and ~100% of the on-chain operations; Claude Code generated the bulk of
-the code text under tight human direction with ~100% of files
-human-reviewed before commit. The hackathon submission would not exist
-in any recognizable form without either party.
+**Rough split:** I authored 100% of the architectural decisions and
+~100% of the on-chain operations. Claude Code generated the bulk of the
+code text under tight direction from me, and I reviewed ~100% of the
+files before commit. This submission would not exist in any recognizable
+form without either party.
 
 ## Per-file attribution
 
-The pattern in every row: human specified the behavior, Claude Code
-generated the implementation, human reproduced or validated the result
-before commit. Where a row says "iterated", that means the human
-directed a re-write or fix after the first generation didn't meet spec.
+The pattern in every row: I specified the behavior, Claude Code generated
+the implementation, I reproduced or validated the result before commit.
+Where a row says "iterated", that means I directed a re-write or fix
+after the first generation didn't meet spec.
 
 | Area | What the human specified / validated | What Claude Code generated |
 |---|---|---|
@@ -150,26 +148,25 @@ directed a re-write or fix after the first generation didn't meet spec.
 | `agents/og_compute.py` | Subprocess wrapper around the TS bridge; 180s timeout for retries | Python implementation |
 | `agents/finding.py`, `agents/aggregator.py` and friends test files (`agents/test_*.py`) | Coverage targets: aggregator quorum, analyzer detection threshold, finding canonical-sign roundtrip, Guardian integration, KeeperHub live happy-path, og-compute round-trip | pytest tests |
 | `agents/run_agent.py`, `agents/build_manifests.py`, `agents/smoke_test_axl.py` | One-shot operator scripts for boot and ad-hoc smoke tests | Python implementation |
-| `og-compute/summarize-finding.ts` | Bridge contract: stdin payload → broker init → `/chat/completions` → fetch signed envelope → local `processResponse` verify; Day-5 SDK gotchas (CJS vs ESM, `processResponse` arg order, `ZG-Res-Key` header) all reproduced live by human; Day-8 socket-hang-up retry directed after live failure | TypeScript bridge |
+| `og-compute/summarize-finding.ts` | Bridge contract: stdin payload → broker init → `/chat/completions` → fetch signed envelope → local `processResponse` verify; I reproduced the Day-5 SDK gotchas live (CJS vs ESM, `processResponse` arg order, `ZG-Res-Key` header); I directed the Day-8 socket-hang-up retry after a live failure | TypeScript bridge |
 | `og-compute/acknowledge.ts`, `deposit.ts`, `list-providers.ts`, `test-inference.ts` | Operator scripts for broker setup and one-shot inference smoke tests | TypeScript scripts |
 | `og-compute/README.md` | Setup notes for the bridge | Document text |
 | `klaxon/cli.py`, `klaxon/_paths.py`, `klaxon/__init__.py` | CLI entry point, command grouping, environment path resolution | Python implementation |
-| `klaxon/commands/{doctor,agents,attack,findings,receipts}.py` | What each subcommand should output; doctor's 28 checks specified by human; pivot to CLI was human-authored | Python implementation |
-| `demo.html` | Single-file rescue replay, 1080p-friendly canvas, ~25s sequence, no build step. Pivot from React dashboard authored by human | Vanilla HTML/CSS/JS implementation |
+| `klaxon/commands/{doctor,agents,attack,findings,receipts}.py` | What each subcommand should output; I specified doctor's 28 checks; I authored the pivot to CLI | Python implementation |
+| `demo.html` | Single-file rescue replay, 1080p-friendly canvas, ~25s sequence, no build step. I authored the pivot from the React dashboard | Vanilla HTML/CSS/JS implementation |
 | `manifests/{agent-a,agent-b,agent-c,manifests}.json` | Manifest schema (agentId, pubkey, analyzerCodeHash, reputation), per-agent self-signature requirement | JSON files + signing flow |
-| `axl/agent-roster.json`, `axl/node-{a,b,c}-config.json`, `axl/README.md` | Yggdrasil mesh / `tcp_port` config validated by human after on-the-mesh testing; PEM keys generated by human via openssl | Config text and the roster JSON |
-| `keeperhub/*.json` (workflow definitions) | Workflow shape directed by human after KeeperHub builder reverse-engineering; per-execution PATCH workaround spec authored after human reproduced the Mustache bug | JSON files |
-| `FEEDBACK.md` | Each issue reproduced live by human before commit; recommendations authored jointly | Document text |
+| `axl/agent-roster.json`, `axl/node-{a,b,c}-config.json`, `axl/README.md` | I validated the Yggdrasil mesh / `tcp_port` config after on-the-mesh testing; I generated the PEM keys via openssl | Config text and the roster JSON |
+| `keeperhub/*.json` (workflow definitions) | I directed the workflow shape after reverse-engineering the KeeperHub builder; I authored the per-execution PATCH workaround spec after reproducing the Mustache bug | JSON files |
+| `FEEDBACK.md` | I reproduced each issue live before commit; recommendations authored jointly | Document text |
 | `docs/submissions/{0g,gensyn,keeperhub}.md` | Which prize-track claims are load-bearing vs decorative; on-chain artifact citations validated against repo state | Document text |
-| `docs/submissions/video-playbook.md` | Script tone, segment timings, what to show when; recording will be human-only | Document text + camera-cut table |
+| `docs/submissions/video-playbook.md` | Script tone, segment timings, what to show when; I will record it solo | Document text + camera-cut table |
 
 ## How a fresh Claude session can resume context
 
-The `PLAN.md` "Resume point" block is updated at the end of every working
+I update the `PLAN.md` "Resume point" block at the end of every working
 session. On a new session start, Claude reads that block first to
 re-derive the current day, last completed work, known gotchas, and next
-action — so AI assistance is reproducible across sessions even when this
-project's solo human operator switches devices or sleeps. This is the
-*actual* spec-driven artifact for this project: a versioned plan with
-durable resume state, kept in git rather than in a separate spec
-framework.
+action, so AI assistance stays reproducible across sessions even when I
+switch devices or sleep. This is the *actual* spec-driven artifact for
+the project: a versioned plan with durable resume state, kept in git
+rather than in a separate spec framework.

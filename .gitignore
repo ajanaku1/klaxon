@@ -50,3 +50,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Remotion video project (large renders + node_modules; demo is hosted externally)
+remotion/

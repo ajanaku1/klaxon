@@ -13,19 +13,17 @@ and trigger a protocol pause on 3-of-N quorum.
 ## Why KeeperHub is load-bearing here
 
 The whole product claim collapses if the rescue tx loses the race. Klaxon
-detects an exploit *before* it lands — the attacker's two-tx exploit
+detects an exploit *before* it lands. The attacker's two-tx exploit
 (oracle bump in block N, drain in block N+1) gives the swarm one block
-window to pause. The rescue tx must:
+window to pause. The rescue tx has to submit fast enough to make block
+N+1, stay out of the public mempool where blackhat bots watching for
+`Guardian.pause` selectors could front-run the rescue itself, and get
+re-submitted automatically on the inevitable transient RPC errors.
 
-1. Submit fast enough to make block N+1
-2. Not leak through the public mempool, where blackhat bots watching for
-   `Guardian.pause` selectors could front-run *the rescue itself*
-3. Be re-submitted automatically on the inevitable transient RPC errors
-
-That's not "build it from scratch in a hackathon" territory. KeeperHub
-provides exactly that primitive — private routing, retries, gas
-optimization, and a relayer wallet that pays the gas — accessed via a
-workflow that any agent in the swarm can fire.
+That's not something we were going to build from scratch in a hackathon.
+KeeperHub gives us private routing, retries, gas handling, and a relayer
+wallet that pays the gas, all behind a workflow any agent in the swarm
+can fire.
 
 ## What we built
 
@@ -42,11 +40,11 @@ We define a single KeeperHub workflow that wraps `Guardian.pause`:
 When 3-of-N quorum forms on a node, that node calls
 `KeeperHubClient.execute(sigs, findingHash, teeHash)`
 (`agents/keeperhub.py`). Multiple agents reach quorum at roughly the
-same time, so all three race to fire the workflow — KeeperHub submits
+same time, so all three race to fire the workflow. KeeperHub submits
 each call, the first one mines, and the others revert harmlessly with
 `AlreadyProcessed` (selector `0x57eee766`). That race is the *correct*
-outcome: it's what makes the rescue censorship-resistant against any
-single agent (or KeeperHub) being down.
+outcome: it's what keeps the rescue working when any single agent (or
+KeeperHub itself) is down.
 
 ### Live verification
 
@@ -59,43 +57,42 @@ Day-6 hard gate cleared at 18:04 UTC, 2026-04-26:
 - All three agents call `KeeperHubClient.execute(...)` independently
 - Agent A's execution wins; KeeperHub relayer submits
   `Guardian.pause`, mined in block N+1
-- Pool.paused() flips true; subsequent attacker `drain()` reverts with
-  `IsPaused()`
-- Agents B and C's executions revert with `AlreadyProcessed` —
+- Pool.paused() flips true; the attacker's follow-up `drain()` reverts
+  with `IsPaused()`
+- Agents B and C's executions revert with `AlreadyProcessed`,
   observable in their logs
 
-End-to-end re-validated multiple times since (cycles 1 and 2 of our
+We've re-run this end-to-end several times since. Cycles 1 and 2 of the
 ×N integration test on 2026-05-01 both passed clean: agent C wins
-cycle 1 in 64s, agent A wins cycle 2 in 64s).
+cycle 1 in 64s, agent A wins cycle 2 in 64s.
 
 ### Cross-chain compatibility built into the agent runtime
 
 Klaxon's agent runtime auto-selects the deployment file based on the
 RPC's `chainId`, so the same Python code works on either Base Sepolia
 or 0G Galileo. We pivoted Guardian + Pool + Oracle to Base Sepolia on
-Day 6 specifically because KeeperHub didn't support 0G Galileo (see
-`FEEDBACK.md` Issue 1) — and the pivot was a config change, not a
-code change.
+Day 6 because KeeperHub didn't support 0G Galileo (see `FEEDBACK.md`
+Issue 1). The pivot was a config change, not a code change.
 
 ## Why "race-safe" was non-trivial
 
 A naïve design has one designated agent submit the pause tx. That
-gives an attacker a single point of failure: take down agent A, the
+hands an attacker a single point of failure: take down agent A and the
 rescue never fires. We instead let *every* agent that sees quorum fire
-its own KeeperHub execution. KeeperHub's relayer submits each one;
-on-chain dedupe (`Guardian` rejects already-processed `findingHash`)
-ensures only the first lands.
+its own KeeperHub execution. KeeperHub's relayer submits each one, and
+on-chain dedupe (`Guardian` rejects an already-processed `findingHash`)
+makes sure only the first lands.
 
 This depends on KeeperHub being able to absorb 3 simultaneous
 `/api/workflows/<id>/execute` calls without dropping any, which it
-does. The cost is 2 wasted relayer txs per rescue — small price for
-removing the SPOF.
+does. The cost is 2 wasted relayer txs per rescue, which is a fine
+price for removing the SPOF.
 
 ## Workarounds we shipped (and why)
 
-Two non-trivial workarounds were necessary on top of KeeperHub. Both
-are documented with reproduction steps and proposed fixes in
-`FEEDBACK.md` (Issues 4 and 6). Summarized for context:
+We needed two workarounds on top of KeeperHub. Both are written up
+with reproduction steps and proposed fixes in `FEEDBACK.md` (Issues 4
+and 6). Short version:
 
 1. **Mustache template `{{...}}` not rendered before JSON.parse** in
    action `functionArgs`. Workaround: every execution PATCHes the
@@ -107,15 +104,15 @@ are documented with reproduction steps and proposed fixes in
    failed-tx error message, then funded it 0.0005 ETH on Base
    Sepolia. Without this, every workflow execution would have OOG.
 
-Both are mentioned only because they show real friction we worked
-through to make KeeperHub load-bearing. The product itself worked.
+We mention both because they show the real friction we worked through
+to make KeeperHub load-bearing. The product itself worked.
 
 ## Builder Feedback bounty
 
 `FEEDBACK.md` is structured for the dual-audience requirement of the
-Builder Feedback bounty: each issue leads with plain-English context,
+Builder Feedback bounty. Each issue leads with plain-English context,
 then technical reproduction, then a specific unblock recommendation.
-Six issues total, all encountered during real integration:
+Six issues total, all hit during real integration:
 
 1. 0G Galileo not in the chain catalog (forced the chain pivot)
 2. 404 page returned with HTTP 200 status code

@@ -31,13 +31,13 @@ For Klaxon's Day 5 finding-summary inference we use:
 | endpoint | `https://compute-network-6.integratenetwork.work/v1/proxy` |
 | TEE verifier | `dstack` (https://github.com/Dstack-TEE/dstack) |
 
-Plan originally targeted `glm-5`; that model isn't on this provider's catalog, so we shipped with Qwen 2.5-7B (also dstack-attested). README needs to reflect this swap.
+Plan originally targeted `glm-5`, but that model isn't on this provider's catalog, so we shipped with Qwen 2.5-7B (also dstack-attested). README needs to reflect this swap.
 
 ## Known issues
 
-- The SDK's ESM build (`lib.esm/index.mjs` in 0.7.5) re-exports under aliased names that don't exist in the underlying chunk file, breaking `import` from a `"type": "module"` package. We work around it by keeping this package CommonJS and using `import * as path` / `__dirname`.
-- `broker.inference.processResponse(...)` returns "getting signature error" on our test call. The HTTP response is OK, the model output is correct — the verification path needs a different argument shape than we're passing. Day 5 fix: dig into the SDK's expected `chatID` format or use the `id` field from the assistant message rather than the OpenAI-style `chat.completions.id`.
+- The SDK's ESM build (`lib.esm/index.mjs` in 0.7.5) re-exports under aliased names that don't exist in the underlying chunk file, which breaks `import` from a `"type": "module"` package. Workaround: keep this package CommonJS and use `import * as path` / `__dirname`.
+- `broker.inference.processResponse(...)` returns "getting signature error" on our test call. The HTTP response is OK and the model output is correct, but the verification path wants a different argument shape than we're passing. Day 5 fix: dig into the SDK's expected `chatID` format, or use the `id` field from the assistant message rather than the OpenAI-style `chat.completions.id`.
 
 ## Cost note
 
-The inference test consumed a small amount of OG from the ledger (under 0.001 OG per short summary). 3 OG covers thousands of demo runs.
+The inference test consumed under 0.001 OG per short summary from the ledger. 3 OG covers thousands of demo runs.
