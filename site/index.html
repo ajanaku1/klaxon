@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klaxon — Autonomous DeFi pauser swarm</title>
+<meta name="description" content="When one finds it, a thousand answer. Klaxon is a swarm of bonded AI agents that watches every block and pauses your protocol before the drainer's second tx." />
+<meta name="theme-color" content="#0a0b0d" />
+<meta property="og:title" content="Klaxon — Autonomous DeFi pauser swarm" />
+<meta property="og:description" content="When one finds it, a thousand answer." />
+<meta property="og:image" content="assets/architecture.png" />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
+<link rel="stylesheet" href="https://fonts.bunny.net/css?family=jetbrains-mono:400,500,700|inter:400,500,700&display=swap" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ─── Mission-control topbar (sticks to entire page) ──────────── -->
+<header class="topbar" role="banner" aria-label="Mission control status">
+  <div class="topbar-inner">
+    <span class="topbar-id">
+      <span class="dot dot-accent" aria-hidden="true"></span>
+      <span class="topbar-id-name">klaxon</span>
+      <span class="topbar-id-sep">·</span>
+      <span class="topbar-id-role">watcher</span>
+    </span>
+    <span class="topbar-protocol">
+      protocol&nbsp;<span class="text-ink">aave-v3 · base-sepolia</span>
+    </span>
+    <span class="topbar-block">
+      block&nbsp;<span class="text-ink" id="block-num">328&nbsp;412&nbsp;998</span>
+    </span>
+    <span class="topbar-status">
+      <span class="dot dot-safe" aria-hidden="true"></span>
+      ARMED · 3-OF-N QUORUM
+    </span>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── 1. HERO ─────────────────────────────────────────────────── -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <div class="hero-meta">
+      <span class="meta-stamp">ETHGLOBAL · OPEN AGENTS · MAY 2026</span>
+      <span class="meta-sep">·</span>
+      <span>HACKATHON SUBMISSION</span>
+    </div>
+
+    <h1 id="hero-title" class="wordmark">KLAXON</h1>
+
+    <p class="tagline">when one finds it, a thousand answer.</p>
+
+    <p class="hero-blurb">
+      A swarm of bonded AI agents that watches every block, reaches quorum
+      in under a second, and calls <code>Guardian.pause()</code> before the
+      drainer's second transaction lands. No multisig. No sleepy humans.
+      Every step signed and on chain.
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#demo">
+        <span class="dot dot-accent" aria-hidden="true"></span>
+        Watch the demo
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/ajanaku1/klaxon" target="_blank" rel="noopener">
+        github.com/ajanaku1/klaxon
+      </a>
+      <a class="btn btn-ghost" href="#architecture">Architecture</a>
+    </div>
+
+    <!-- Live "transcript" sidebar — the page is itself a dashboard -->
+    <aside class="hero-transcript" aria-label="Live block log">
+      <div class="transcript-head">
+        <span>RECENT BLOCKS</span>
+        <span class="dot dot-watch" aria-hidden="true"></span>
+      </div>
+      <ol class="transcript-list" id="transcript">
+        <li><span class="t-block">N+1</span><span class="t-event safe">GUARDIAN.PAUSE() ✓</span></li>
+        <li><span class="t-block">N+0</span><span class="t-event accent">QUORUM 3 / 3 · 847&nbsp;ms</span></li>
+        <li><span class="t-block">N+0</span><span class="t-event accent">AXL GOSSIP · A → B → C</span></li>
+        <li><span class="t-block">N+0</span><span class="t-event accent">DETECT · A · B · C</span></li>
+        <li><span class="t-block">N</span><span class="t-event watch">ORACLE BUMP · 10 000×</span></li>
+        <li><span class="t-block">N-1</span><span class="t-event muted">obs · feed steady</span></li>
+        <li><span class="t-block">N-2</span><span class="t-event muted">obs · feed steady</span></li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ─── 2. THE PROBLEM ──────────────────────────────────────────── -->
+<section class="section problem" aria-labelledby="problem-title">
+  <div class="section-rule"><span>01 · the problem</span></div>
+  <h2 id="problem-title" class="section-title">
+    The pauser multisig is the slowest key in DeFi.
+  </h2>
+  <p class="section-lede">
+    An exploit lands at block <em>N</em>. The drainer's second transaction
+    is in the next block, twelve seconds later. Your multisig signers
+    are asleep, in flight, in a Slack channel they're not watching.
+    By the time someone signs the pause, it's already over.
+  </p>
+
+  <div class="timeline">
+    <div class="timeline-row">
+      <div class="timeline-label">
+        <span class="timeline-actor">DRAINER · 0xc0…01ee</span>
+        <span class="timeline-sub">5 213 400 USDC extracted</span>
+      </div>
+      <div class="bar bar-accent" style="--w: 4%;">
+        <span class="bar-pulse"></span>
+      </div>
+      <div class="timeline-time accent">12 s</div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">
+        <span class="timeline-actor">PAUSER MULTISIG · QUORUM 1 / 3</span>
+        <span class="timeline-sub">
+          <span class="dot dot-watch" aria-hidden="true"></span>
+          still loading
+        </span>
+      </div>
+      <div class="bar bar-watch bar-striped" style="--w: 92%;"></div>
+      <div class="timeline-time watch">07:42</div>
+    </div>
+
+    <ul class="timeline-axis" aria-hidden="true">
+      <li>0:00</li><li>1m</li><li>2m</li><li>4m</li><li>6m</li><li>8m</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─── 3. THE SWARM ────────────────────────────────────────────── -->
+<section class="section swarm" aria-labelledby="swarm-title">
+  <div class="section-rule"><span>02 · the swarm</span></div>
+  <h2 id="swarm-title" class="section-title">
+    Three bonded agents. One verified pipeline.
+  </h2>
+  <p class="section-lede">
+    Each agent runs its own keeper bot, holds its own bond, and is minted
+    as an iNFT on 0G Storage with a verifiable history. They gossip findings
+    over the Gensyn AXL mesh. No coordinator. No single point of failure.
+  </p>
+
+  <div class="swarm-grid">
+
+    <article class="agent-card" aria-label="Agent A">
+      <header class="agent-head">
+        <span class="agent-letter">A</span>
+        <span class="badge badge-purple">iNFT #1</span>
+      </header>
+      <div class="agent-body">
+        <code class="agent-addr">0x4A0AF400…bb15fFA</code>
+        <div class="agent-spec">oracle-manipulation analyzer</div>
+      </div>
+      <footer class="agent-foot">
+        <span class="status status-safe">
+          <span class="dot dot-safe" aria-hidden="true"></span>
+          ARMED
+        </span>
+        <span class="agent-port">AXL :9002</span>
+      </footer>
+    </article>
+
+    <article class="agent-card" aria-label="Agent B">
+      <header class="agent-head">
+        <span class="agent-letter">B</span>
+        <span class="badge badge-purple">iNFT #2</span>
+      </header>
+      <div class="agent-body">
+        <code class="agent-addr">0xD87AD210…4221fa</code>
+        <div class="agent-spec">oracle-manipulation analyzer</div>
+      </div>
+      <footer class="agent-foot">
+        <span class="status status-safe">
+          <span class="dot dot-safe" aria-hidden="true"></span>
+          ARMED
+        </span>
+        <span class="agent-port">AXL :9012</span>
+      </footer>
+    </article>
+
+    <article class="agent-card" aria-label="Agent C">
+      <header class="agent-head">
+        <span class="agent-letter">C</span>
+        <span class="badge badge-purple">iNFT #3</span>
+      </header>
+      <div class="agent-body">
+        <code class="agent-addr">0x92977216…06DB088</code>
+        <div class="agent-spec">oracle-manipulation analyzer</div>
+      </div>
+      <footer class="agent-foot">
+        <span class="status status-safe">
+          <span class="dot dot-safe" aria-hidden="true"></span>
+          ARMED
+        </span>
+        <span class="agent-port">AXL :9022</span>
+      </footer>
+    </article>
+
+    <svg class="axl-mesh" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="mesh-gradient" x1="0" x2="1">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.5" />
+          <stop offset="50%" stop-color="#10b981" stop-opacity="1" />
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0.5" />
+        </linearGradient>
+      </defs>
+      <line x1="17" y1="7" x2="50" y2="7" stroke="url(#mesh-gradient)" stroke-width="0.18" />
+      <line x1="50" y1="7" x2="83" y2="7" stroke="url(#mesh-gradient)" stroke-width="0.18" />
+      <path d="M 17 7 Q 50 3 83 7" fill="none" stroke="url(#mesh-gradient)" stroke-width="0.15" stroke-dasharray="0.8 0.6" />
+      <circle class="pulse pulse-1" r="0.6" fill="#10b981" />
+      <circle class="pulse pulse-2" r="0.6" fill="#10b981" />
+      <circle class="pulse pulse-3" r="0.6" fill="#10b981" />
+    </svg>
+
+    <div class="swarm-mesh-label">
+      <span class="dot dot-safe" aria-hidden="true"></span>
+      AXL gossip · libp2p over Yggdrasil · Ed25519 signed
+    </div>
+  </div>
+</section>
+
+<!-- ─── 4. HOW IT WORKS ────────────────────────────────────────── -->
+<section class="section flow" aria-labelledby="flow-title">
+  <div class="section-rule"><span>03 · how it works</span></div>
+  <h2 id="flow-title" class="section-title">
+    From oracle slam to on-chain pause.
+  </h2>
+  <p class="section-lede">
+    The whole sequence runs in under a second. The drainer never gets
+    to broadcast a second transaction.
+  </p>
+
+  <ol class="flow-steps">
+    <li class="flow-step" data-step="01">
+      <span class="flow-num">01</span>
+      <h3 class="flow-name">ORACLE BUMP</h3>
+      <p class="flow-desc">Attacker shifts a price feed 10 000× in block N. Price oracle reads <code>$0.16</code> instead of <code>$1 670.42</code>.</p>
+      <span class="flow-tag">ManipulableOracle.update()</span>
+    </li>
+    <li class="flow-step" data-step="02">
+      <span class="flow-num">02</span>
+      <h3 class="flow-name">DETECT · A·B·C</h3>
+      <p class="flow-desc">Three agents run sealed inference inside a TEE. Each signs a <code>Finding</code> with its own secp256k1 key.</p>
+      <span class="flow-tag">0G Compute · dstack TEE</span>
+    </li>
+    <li class="flow-step" data-step="03">
+      <span class="flow-num">03</span>
+      <h3 class="flow-name">AXL GOSSIP</h3>
+      <p class="flow-desc">Findings broadcast over the AXL mesh. Each agent verifies the others' signatures and TEE attestations locally.</p>
+      <span class="flow-tag">Gensyn AXL · libp2p</span>
+    </li>
+    <li class="flow-step" data-step="04">
+      <span class="flow-num">04</span>
+      <h3 class="flow-name">QUORUM 3 / 3</h3>
+      <p class="flow-desc">When three independent signatures land on the same <code>findingHash</code>, every agent's keeper bot races to fire the pause.</p>
+      <span class="flow-tag">847 ms · no coordinator</span>
+    </li>
+    <li class="flow-step" data-step="05">
+      <span class="flow-num">05</span>
+      <h3 class="flow-name">GUARDIAN.PAUSE()</h3>
+      <p class="flow-desc">KeeperHub picks the winner; the others revert <code>AlreadyProcessed</code>. Pool is paused at block N+1. Drainer's next withdrawal reverts <code>IsPaused()</code>.</p>
+      <span class="flow-tag">KeeperHub · Base Sepolia</span>
+    </li>
+  </ol>
+</section>
+
+<!-- ─── 5. TRUST RECEIPT ───────────────────────────────────────── -->
+<section class="section receipt" aria-labelledby="receipt-title">
+  <div class="section-rule"><span>04 · trust receipt</span></div>
+  <h2 id="receipt-title" class="section-title">
+    Every pause leaves a receipt.
+  </h2>
+  <p class="section-lede">
+    Anyone can replay the whole sequence, block by block. The agents have
+    real money bonded against this.
+  </p>
+
+  <div class="receipt-panel">
+    <header class="receipt-head">
+      <span>TRUST RECEIPT · pause 0x981d4370…6df1</span>
+      <span class="receipt-meta safe">3 / 3 PROOFS</span>
+    </header>
+
+    <ul class="receipt-rows">
+      <li class="receipt-row">
+        <span class="receipt-label">TEE ATTESTATION</span>
+        <span class="receipt-source">dstack TEE · 0G Compute</span>
+        <code class="receipt-hash">0x77aa240f…b203</code>
+        <span class="receipt-meaning">analysis ran inside a real enclave</span>
+        <span class="badge badge-safe">VERIFIED ✓</span>
+      </li>
+      <li class="receipt-row">
+        <span class="receipt-label">0G COMPUTE SIGNATURE</span>
+        <span class="receipt-source">sealed-inference · verifier 0x83df4b8e…</span>
+        <code class="receipt-hash">0xa1c3b9ee…7f44</code>
+        <span class="receipt-meaning">signature checkable on chain</span>
+        <span class="badge badge-safe">VERIFIED ✓</span>
+      </li>
+      <li class="receipt-row">
+        <span class="receipt-label">iNFT STORAGEROOT Δ</span>
+        <span class="receipt-source">0G storage · agent #1 history</span>
+        <code class="receipt-hash">0xe28b51d4…9fa1 → 0x4d72ac08…62b7</code>
+        <span class="receipt-meaning">finding appended to agent history</span>
+        <span class="badge badge-safe">VERIFIED ✓</span>
+      </li>
+    </ul>
+
+    <footer class="receipt-foot">
+      <div class="receipt-bond">
+        <span class="bond-label">AGENT BONDS · IF THEY LIE, THEY GET SLASHED</span>
+        <div class="bond-grid">
+          <span class="bond-cell"><span class="bond-letter">A</span><span class="bond-amt">0.8 ETH</span></span>
+          <span class="bond-cell"><span class="bond-letter">B</span><span class="bond-amt">0.8 ETH</span></span>
+          <span class="bond-cell"><span class="bond-letter">C</span><span class="bond-amt">0.8 ETH</span></span>
+        </div>
+        <span class="bond-total">2.4 ETH at risk · slashable on false-positive vote</span>
+      </div>
+    </footer>
+  </div>
+</section>
+
+<!-- ─── 6. STACK ───────────────────────────────────────────────── -->
+<section class="section stack" aria-labelledby="stack-title">
+  <div class="section-rule"><span>05 · stack</span></div>
+  <h2 id="stack-title" class="section-title">Built on.</h2>
+
+  <ul class="stack-grid">
+    <li>
+      <a class="stack-card" href="https://0g.ai" target="_blank" rel="noopener">
+        <span class="stack-name">0G COMPUTE</span>
+        <span class="stack-role">sealed inference · TEE attestation · iNFT storage</span>
+        <span class="stack-arrow" aria-hidden="true">→</span>
+      </a>
+    </li>
+    <li>
+      <a class="stack-card" href="https://www.gensyn.ai" target="_blank" rel="noopener">
+        <span class="stack-name">GENSYN AXL</span>
+        <span class="stack-role">agent gossip mesh · Ed25519 transport</span>
+        <span class="stack-arrow" aria-hidden="true">→</span>
+      </a>
+    </li>
+    <li>
+      <a class="stack-card" href="https://www.keeperhub.io" target="_blank" rel="noopener">
+        <span class="stack-name">KEEPERHUB</span>
+        <span class="stack-role">race-safe workflow execution · relayer wallet</span>
+        <span class="stack-arrow" aria-hidden="true">→</span>
+      </a>
+    </li>
+    <li>
+      <a class="stack-card" href="https://docs.base.org" target="_blank" rel="noopener">
+        <span class="stack-name">BASE SEPOLIA</span>
+        <span class="stack-role">Guardian · Pool · Oracle deployed</span>
+        <span class="stack-arrow" aria-hidden="true">→</span>
+      </a>
+    </li>
+  </ul>
+</section>
+
+<!-- ─── 7. ARCHITECTURE DIAGRAM ────────────────────────────────── -->
+<section class="section architecture" id="architecture" aria-labelledby="arch-title">
+  <div class="section-rule"><span>06 · architecture</span></div>
+  <h2 id="arch-title" class="section-title">The whole pipeline in one image.</h2>
+  <p class="section-lede">
+    Attacker bumps the oracle. Three agents detect independently, attested
+    by 0G Compute. Quorum reaches KeeperHub. Guardian pauses the pool.
+    The drainer's next call reverts.
+  </p>
+
+  <a class="architecture-frame" href="assets/architecture.png" target="_blank" rel="noopener" aria-label="Open architecture diagram full-size">
+    <img src="assets/architecture.png" alt="Klaxon architecture: attacker, three agents on AXL mesh, quorum, KeeperHub workflow, Guardian.pause, Pool paused, drainer reverts" loading="lazy" />
+    <span class="architecture-zoom">CLICK TO ENLARGE</span>
+  </a>
+</section>
+
+<!-- ─── 8. DEMO VIDEO ──────────────────────────────────────────── -->
+<section class="section demo" id="demo" aria-labelledby="demo-title">
+  <div class="section-rule"><span>07 · demo</span></div>
+  <h2 id="demo-title" class="section-title">Watch the rescue play out.</h2>
+  <p class="section-lede">
+    Two and a half minutes. Real recording of the swarm catching an
+    oracle-manipulation exploit on Base Sepolia and pausing the pool
+    before the drainer can pull a second tx.
+  </p>
+
+  <div class="demo-frame">
+    <video
+      class="demo-video"
+      controls
+      preload="metadata"
+      poster="assets/architecture.png"
+      playsinline
+    >
+      <source src="assets/klaxon-demo.mp4" type="video/mp4" />
+      Your browser does not support HTML5 video. Download the file
+      <a href="assets/klaxon-demo.mp4">here</a>.
+    </video>
+  </div>
+</section>
+
+<!-- ─── 9. GET STARTED ─────────────────────────────────────────── -->
+<section class="section getstarted" aria-labelledby="get-title">
+  <div class="section-rule"><span>08 · run it</span></div>
+  <h2 id="get-title" class="section-title">Run a swarm locally.</h2>
+  <p class="section-lede">
+    Three Python agents, three AXL nodes, one Foundry-deployed Guardian.
+    Eight minutes from clone to first paused exploit on a local fork.
+  </p>
+
+  <pre class="codeblock"><code><span class="cb-comment"># clone</span>
+git clone https://github.com/ajanaku1/klaxon.git
+cd klaxon
+
+<span class="cb-comment"># install</span>
+pnpm install
+uv sync                       <span class="cb-comment"># Python agents</span>
+forge install                 <span class="cb-comment"># Solidity</span>
+
+<span class="cb-comment"># run end-to-end on Base Sepolia</span>
+klaxon doctor                 <span class="cb-comment"># env + chain checks</span>
+klaxon agents up              <span class="cb-comment"># spin up A, B, C + AXL mesh</span>
+klaxon attack bump            <span class="cb-comment"># trigger an exploit</span>
+klaxon receipts               <span class="cb-comment"># show signed proofs</span></code></pre>
+
+  <div class="contracts">
+    <div class="contracts-head">DEPLOYED · BASE SEPOLIA · CHAIN 84532</div>
+    <ul class="contracts-list">
+      <li>
+        <span class="contracts-name">Guardian</span>
+        <a class="contracts-addr" href="https://sepolia.basescan.org/address/0xD9d5E92393A6E5D238d3e7f35F384BdbaCdC785b" target="_blank" rel="noopener">0xD9d5E923…dC785b</a>
+      </li>
+      <li>
+        <span class="contracts-name">VulnerableLendingPool</span>
+        <a class="contracts-addr" href="https://sepolia.basescan.org/address/0x923dEF178E5C058af9cd795c6bf76A76ceb9Fb45" target="_blank" rel="noopener">0x923dEF17…b9Fb45</a>
+      </li>
+      <li>
+        <span class="contracts-name">ManipulableOracle</span>
+        <a class="contracts-addr" href="https://sepolia.basescan.org/address/0xC8470BDDF0038eCde3A9FB4E79B41AEf71f4D1f0" target="_blank" rel="noopener">0xC8470BDD…f4D1f0</a>
+      </li>
+      <li>
+        <span class="contracts-name">AgentINFT</span>
+        <span class="contracts-meta">0G Galileo</span>
+        <a class="contracts-addr" href="https://chainscan-galileo.0g.ai/address/0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17" target="_blank" rel="noopener">0xdfcE8Bc5…3B17</a>
+      </li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<!-- ─── FOOTER ─────────────────────────────────────────────────── -->
+<footer class="footer" role="contentinfo">
+  <div class="footer-row">
+    <span class="footer-mark">KLAXON</span>
+    <span class="footer-tag">when one finds it, a thousand answer.</span>
+  </div>
+  <div class="footer-row footer-meta">
+    <span>ETHGLOBAL · OPEN AGENTS · MAY 2026</span>
+    <span>·</span>
+    <a href="https://github.com/ajanaku1/klaxon" target="_blank" rel="noopener">github.com/ajanaku1/klaxon</a>
+    <span>·</span>
+    <span>MIT</span>
+  </div>
+</footer>
+
+<script src="script.js" defer></script>
+</body>
+</html>
