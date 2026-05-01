@@ -81,12 +81,20 @@ async function main() {
   // every agent eventually gets its envelope.
   let res: Response | null = null;
   let json: any = null;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    res = await fetch(`${md.endpoint}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(body),
-    });
+  for (let attempt = 0; attempt < 12; attempt++) {
+    try {
+      res = await fetch(`${md.endpoint}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(body),
+      });
+    } catch (e: any) {
+      // Provider closes the TCP socket under concurrent load; treat like a 429.
+      const wait = 1500 + attempt * 750 + Math.floor(Math.random() * 500);
+      process.stderr.write(`network error (${e?.message ?? e}); sleeping ${wait}ms\n`);
+      await new Promise((r) => setTimeout(r, wait));
+      continue;
+    }
     if (res.ok) {
       json = await res.json();
       break;
@@ -101,7 +109,7 @@ async function main() {
     process.stderr.write(`HTTP ${res.status}: ${text}\n`);
     process.exit(2);
   }
-  if (!json) {
+  if (!json || !res) {
     process.stderr.write(`exhausted retries on /chat/completions\n`);
     process.exit(2);
   }

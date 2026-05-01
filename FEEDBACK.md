@@ -1,8 +1,20 @@
-# KeeperHub Builder Feedback
+# Builder Feedback — KeeperHub & 0G Compute
 
-Feedback for the [KeeperHub Builder Feedback Bounty](https://ethglobal.com/events/openagents/prizes/keeperhub) ($500, up to 2 teams at $250 each).
+This file collects integration feedback for two sponsor stacks Klaxon
+depends on. The KeeperHub section (Part 1) is the formal submission for
+the [KeeperHub Builder Feedback Bounty](https://ethglobal.com/events/openagents/prizes/keeperhub)
+($500, up to 2 teams at $250 each). The 0G Compute section (Part 2) is
+included because we hit enough real friction that documenting it would
+have saved us a day, and the issues are independent of KeeperHub.
 
-Built against KeeperHub during the ETHGlobal Open Agents hackathon (Apr 25 to May 3, 2026), Days 6 and beyond. Each item is written so a brand-new user can grasp the issue from the first paragraph and an expert can act on the technical detail in the same item.
+Built during the ETHGlobal Open Agents hackathon (Apr 25 to May 3, 2026).
+Each item is written so a brand-new user can grasp the issue from the
+first paragraph and an expert can act on the technical detail in the
+same item.
+
+---
+
+# Part 1 — KeeperHub
 
 ---
 
@@ -210,3 +222,211 @@ Pool.paused() flips true; subsequent attacker drain reverts with IsPaused()
         ▼
 x402 V2 session pays the 3 contributing agents from a Klaxon escrow
 ```
+
+---
+
+# Part 2 — 0G Compute (Sealed Inference)
+
+Feedback for the [0G Track B](https://ethglobal.com/events/openagents/prizes/0g-labs)
+sponsor stack, specifically `@0glabs/0g-serving-broker` (TS SDK) and the
+dstack-attested chatbot provider catalog.
+
+## Our use case (context for the rest of this section)
+
+Every Klaxon Finding carries a TEE-signed envelope proving which model
+produced its summary. Receivers verify the envelope locally before
+counting the finding toward 3-of-N quorum. The TEE attestation hash is
+also committed on-chain in the `FindingAttested(findingHash, teeHash)`
+event emitted by `Guardian.pause`. We use `@0glabs/0g-serving-broker`
+to call the dstack-attested chatbot provider
+`0xa48f01287233509FD694a22Bf840225062E67836` (Qwen 2.5 7B), then fetch
+the signature envelope from the provider's `/v1/proxy/signature/<chatID>`
+endpoint, then verify locally via `processResponse` before attaching to
+the Finding.
+
+Day 1 of integration: 2026-04-26 (Day 5 of the hackathon).
+
+---
+
+## Issue 1: SDK v0.7.5 ESM build re-exports symbols that don't exist in the chunk file
+
+**Plain English.** The TypeScript SDK ships an ESM build, but its
+`lib.esm/index.mjs` re-exports symbols under aliased names that
+the bundled chunk file doesn't actually export. `import { ... } from
+"@0glabs/0g-serving-broker"` from an ESM project fails at module-resolve
+time. The CJS build works fine, so we kept the bridge as CJS and
+sub-process it from Python — but anyone building a fully-ESM Node app
+(which is the modern default) will hit this immediately.
+
+**Technical detail.** Repro on a clean `npm init -y; npm i @0glabs/0g-serving-broker@0.7.5`:
+
+```js
+// index.mjs
+import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
+// → SyntaxError: The requested module '@0glabs/0g-serving-broker' does not
+//   provide an export named 'createZGComputeNetworkBroker'
+```
+
+The same import works from `index.cjs` (`require(...)`).
+
+**What would unblock builders.** Either fix the `lib.esm` build to export
+what `index.mjs` re-exports, or document explicitly in the README that
+the SDK is CJS-only today and add `"exports": { ".": { "require": "..." } }`
+to `package.json` so bundlers don't try to resolve the broken ESM path.
+
+---
+
+## Issue 2: `processResponse(provider, chatID, content)` arg order is undocumented and counter-intuitive
+
+**Plain English.** The local-verification function that confirms the
+provider's signature over their response takes three arguments. The
+intuitive order — provider, content (the thing being signed), then
+chatID (a metadata identifier) — is wrong. The actual order is provider,
+chatID, content. We spent half an hour seeing `verified=false` from a
+provider that was actually fine because we'd put the wrong thing in the
+middle slot.
+
+**Technical detail.**
+
+```ts
+// What we tried first (intuitive but wrong):
+const verified = await broker.inference.processResponse(providerAddr, content, chatID);
+
+// What actually works:
+const verified = await broker.inference.processResponse(providerAddr, chatID, content);
+```
+
+There are no JSDoc tags on the function and no example in the SDK's
+README that uses positional args explicitly enough to disambiguate. The
+TypeScript types are typed as `(string, string, string)` so the compiler
+doesn't catch it.
+
+**What would unblock builders.** Rename the parameters to be self-
+documenting (e.g., `providerAddr, chatId, responseContent`), add JSDoc
+descriptions, and add one fully-worked round-trip example to the SDK
+README that shows `chatCompletion → processResponse` with the chat ID
+extraction (see Issue 3) inline.
+
+---
+
+## Issue 3: The `chatID` to pass into `processResponse` is the `ZG-Res-Key` response header, not the OpenAI body `id`
+
+**Plain English.** OpenAI-style chat APIs return an `id` field in the
+JSON body. That looks like the canonical request identifier. For 0G
+Compute, however, the identifier you pass into `processResponse` is in
+a custom HTTP response header (`ZG-Res-Key`), not in the body. We used
+the body `id` first, got `verified=false` consistently, and lost about
+20 minutes before we noticed the header.
+
+**Technical detail.**
+
+```ts
+const res = await fetch(`${endpoint}/chat/completions`, { method: "POST", ... });
+const json = await res.json();
+
+const chatIDFromBody = json.id;                    // wrong
+const chatIDFromHeader = res.headers.get("ZG-Res-Key");  // right (or zg-res-key, lowercase)
+```
+
+The two values are distinct strings. Using the wrong one to fetch
+`/v1/proxy/signature/<chatID>` returns 404 sometimes, or returns a stale
+attestation that fails `processResponse`.
+
+**What would unblock builders.** Have the SDK extract `ZG-Res-Key`
+internally and expose it as `result.chatId` on whatever the
+`chatCompletion` wrapper returns. If users have to call `fetch`
+themselves (because they want streaming or to inspect headers), at
+least document the header name and casing in the README.
+
+---
+
+## Issue 4: dstack provider caps concurrent requests per user at 2; with 3 agents this guarantees one fails
+
+**Plain English.** Klaxon has 3 agents that all detect the same exploit
+at roughly the same wall-clock time and each fire an independent TEE-
+attestation request to the same provider. The dstack-attested chatbot
+provider rate-limits to 2 concurrent requests per user wallet. The
+third request comes back as HTTP 429 ("too many concurrent") *or*, more
+insidiously, as a TCP socket hang-up mid-request. Without retry, that
+agent's finding has no TEE envelope and the other two agents reject it
+on receive — quorum drops from 3 to 2 and the rescue can't fire.
+
+**Technical detail.** Reproduced live on 2026-04-26 and again on
+2026-05-01 cycle 3 of our integration test (after two clean cycles).
+Symptoms:
+
+- HTTP 429 with body containing `"too many concurrent"` (handled)
+- Socket hang-up: `fetch()` throws with `socket hang up` or
+  `UND_ERR_SOCKET` *before* an HTTP status is set — was unhandled until
+  we wrapped the fetch in try/catch
+- Provider response with `verified=false` (no clear cause; possibly
+  partial response truncation under load)
+
+Our mitigation, all in `og-compute/summarize-finding.ts` and
+`agents/agent.py`:
+
+1. Bridge wraps `fetch()` in try/catch and treats network errors the
+   same as HTTP 429 (retry with backoff up to 12 attempts).
+2. Per-agent `time.sleep` offset (a=0s, b=8s, c=16s) before invoking
+   the bridge, so three agents don't hit the provider simultaneously.
+
+Even with both mitigations, on 2026-05-01 the provider was degraded
+enough that one of three agents could not get a verified attestation
+within 180s. This is an external-dependency reality, not a Klaxon bug.
+
+**What would unblock builders.**
+
+1. Document the per-user concurrency cap explicitly in the dstack
+   provider's metadata so callers can preemptively rate-limit themselves.
+2. Return HTTP 429 (with `Retry-After`) consistently rather than killing
+   the TCP socket — socket hang-ups make every HTTP client think they
+   hit a network glitch and either fail-fast or retry too aggressively.
+3. Add a lightweight per-user request queue server-side, or expose one
+   in the SDK, so callers don't have to roll their own backoff.
+4. Provide more than one attested-chatbot provider in the catalog. Today
+   `list-providers` returns only one chatbot provider and one image-
+   editing provider; if the chatbot provider is degraded there is no
+   fallback.
+
+---
+
+## Issue 5: 0G TS SDK chain of `axios` / `open-jsonrpc-provider` is incompatible with Node 25
+
+**Plain English.** We tried to upload our agent manifests to 0G Storage
+so the iNFT `tokenURI` could point at a real fetched file. Both
+`@0gfoundation/0g-ts-sdk@1.2.6` and `@0glabs/0g-ts-sdk@0.3.3` fail to
+load on Node 25 because of a transitive dependency on
+`open-jsonrpc-provider`, which depends on a version of `axios` that was
+incompatible with Node 25's stricter HTTP behaviour. We worked around
+this by committing the manifests to the repo and committing only the
+content hash to the iNFT — the on-chain commitment is still cryptographic
+proof of the manifest, but the actual file fetch is local.
+
+**Technical detail.** The error chain is `0g-ts-sdk` → `open-jsonrpc-provider`
+→ `axios` → an HTTP transport assumption that Node 25 invalidated. Both
+SDK versions blow up at import time, before any 0G API is called. We
+did not file individual GitHub issues because the fix is on
+`open-jsonrpc-provider`'s side and the SDKs would need to bump.
+
+**What would unblock builders.** Pin a Node-compatible version of
+`open-jsonrpc-provider` (or fork the bit of it the SDK actually uses)
+in the next 0G TS SDK release. Today the SDK only works on Node 18-22
+in our experience.
+
+---
+
+## What we appreciated about 0G Compute
+
+- The local-verification model (no provider round-trip on the receive
+  path) is the right design for a swarm. Once we attached the TEE
+  envelope to the Finding, every agent in the swarm could verify it
+  with `processResponse` against `(tee_text, tee_signature, signing_address)`
+  — no extra trust in the provider, no extra latency on the gossip path.
+  This is what made the TEE attestation feasible to gate quorum on.
+- The dstack TEE flow is genuinely cool. `keccak256(tee_text)` as the
+  on-chain commitment of *which model reviewed the finding* is a real
+  thing you can build slashing on top of.
+- The broker's auto-deposit + auto-acknowledge flow is friendly; we
+  topped up the deposit account once (3 OG) and didn't have to think
+  about it for the rest of the build.
+

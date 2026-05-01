@@ -39,7 +39,7 @@ class Attestation:
     verified: bool
 
 
-def summarize(prompt: str, max_tokens: int = 80, temperature: float = 0.2, timeout_s: float = 90.0) -> Attestation:
+def summarize(prompt: str, max_tokens: int = 80, temperature: float = 0.2, timeout_s: float = 180.0) -> Attestation:
     """Send a prompt to the 0G Compute provider and return a TEE-signed
     attestation over the response. Raises on bridge failure or non-verified
     attestation — agents shouldn't gossip Findings backed by unverified TEEs.

@@ -4,7 +4,6 @@ Bonded analyzer iNFTs compete to spot exploits in real time. Each finding is cro
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 *"When one finds it, a thousand answer."*
@@ -15,7 +14,7 @@ Built for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) (Apri
 
 ## Status
 
-Build in progress. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and current status.
+Submission build for ETHGlobal Open Agents (deadline 2026-05-03). End-to-end rescue verified live on Base Sepolia + 0G Galileo. See [`PLAN.md`](./PLAN.md) for the day-by-day build plan and per-prize submission write-ups in [`docs/submissions/`](./docs/submissions/).
 
 ### Deployed contracts (0G Chain Galileo testnet, chainId 16602)
 
@@ -42,6 +41,10 @@ Day 3 through Day 5 ran on 0G Chain. The Day 5 deploy at Guardian `0xca9F97...49
 **Day 5 hard gate cleared (2026-04-26)**: same flow but every `Finding` carries a real TEE attestation envelope from 0G Compute Sealed Inference (qwen-2.5-7b-instruct on a dstack-attested provider). Receivers gate quorum on local enclave-signature verification, no provider round-trip. The on-chain `FindingAttested` event now commits to a real `keccak256(tee_text)` instead of the Day-4 placeholder zero. Winning tx: [`0x5f6db174...`](https://chainscan-galileo.0g.ai/tx/0x5f6db17485f3e32dfb4beac855effc25bc6d71e32977d8b3c53db9920b148030).
 
 **Day 6 hard gate cleared (2026-04-26)**: pause now flows through KeeperHub. Each agent submits a workflow execution via the KeeperHub MCP `execute_workflow` tool; KeeperHub's relayer wallet (`0xc90e35...fa84`) signs and submits `Guardian.pause` on Base Sepolia. Agent C won the race; A and B reverted with `AlreadyProcessed`. Pool paused, drain blocked.
+
+**Day 7 hard gate cleared (2026-04-30)**: shipped the `klaxon` Python CLI (Typer + Rich) — `doctor`, `agents up/down/status`, `findings`, `receipts`, `attack bump|drain|reset`. Minted three AgentINFTs on 0G Galileo at [`0xdfcE8Bc5...3B17`](https://chainscan-galileo.0g.ai/address/0xdfcE8Bc5F90b5784Bd0320574e644c5427153B17), each `tokenURI` updated with the keccak256 root of its canonical signed manifest (manifests committed to [`/manifests`](./manifests/)). Single-file [`demo.html`](./demo.html) rescue replay built for video capture.
+
+**Day 8 integration test (2026-05-01)**: re-ran the full pipeline on freshly-deployed contracts. Cycles 1 and 2 passed clean (~64 s detect→quorum→pause). Cycle 3 surfaced real degradation in the dstack TEE provider, documented in [`FEEDBACK.md`](./FEEDBACK.md) Part 2 Issue 4 along with the surgical fixes shipped (bridge-level retry on socket hang-ups, per-agent stagger on TEE calls).
 
 ---
 
@@ -84,14 +87,14 @@ Klaxon targets three ETHGlobal Open Agents partner prizes with load-bearing inte
 
 | Layer | Technology |
 |---|---|
-| Contracts | Solidity 0.8, Foundry, 0G Chain (EVM-compatible) |
-| Agent runtime | Python 3.10, Pydantic, `requests` |
+| Contracts | Solidity 0.8, Foundry, Base Sepolia (Guardian/Pool/Oracle) + 0G Galileo (AgentINFT) |
+| Agent runtime | Python 3.10, Pydantic, `web3.py`, `eth-account` |
 | P2P mesh | Gensyn AXL (Go binary, Ed25519, Yggdrasil + gVisor) |
-| AI inference | 0G Compute Sealed Inference (GLM-5, Intel TDX + H100) |
-| Storage | 0G Storage (Merkle-root content addressing) |
-| Execution | KeeperHub (MCP server + CLI) |
-| Payments | x402 V2 sessions on Base Sepolia |
-| Dashboard | Next.js 15, Tailwind, shadcn/ui |
+| TEE inference | 0G Compute Sealed Inference (Qwen 2.5 7B on dstack-attested provider) |
+| Agent identity | 0G Storage manifests committed by hash to ERC-7857 iNFT `tokenURI` |
+| Execution | KeeperHub workflow (private routing, race-safe) |
+| Operator UX | `klaxon` CLI (Typer + Rich), single-file `demo.html` rescue replay |
+| Payments (planned) | x402 V2 sessions on Base Sepolia for bounty splits |
 
 ---
 
@@ -155,40 +158,43 @@ The analyzer code hash is committed in the iNFT manifest, so operators can verif
 
 ## Running Locally
 
-Status: scaffolding only as of Day 2. Full walkthrough lands Day 8 once the end-to-end demo is reproducible.
+Klaxon is operated as a CLI. After install, the entire flow is six commands.
 
 ### Prerequisites
-- Node.js 20+
-- Python 3.10+
-- Go 1.25.5+ (for building AXL from source)
-- Foundry (forge, cast, anvil)
+- Python 3.10+ (for the agent runtime + CLI)
+- Node.js 20–22 (for the 0G Compute bridge — Node 25 is currently incompatible with the 0G TS SDK chain, see `FEEDBACK.md` Part 2 Issue 5)
+- Go 1.25+ (only if building AXL from source; binary is committed to `axl/bin/`)
+- Foundry (`forge`, `cast`)
 
 ### Install
 ```bash
-git clone https://github.com/ajanaku1/klaxon.git
+git clone <repo-url> klaxon
 cd klaxon
 
-# Build AXL binary
-git clone https://github.com/gensyn-ai/axl /tmp/axl-src
-(cd /tmp/axl-src && make build)
-cp /tmp/axl-src/node axl/bin/node
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 
-# Generate agent keypairs
-cd axl
-openssl genpkey -algorithm ed25519 -out node-a-private.pem
-openssl genpkey -algorithm ed25519 -out node-b-private.pem
-openssl genpkey -algorithm ed25519 -out node-c-private.pem
+# 0G Compute bridge (TypeScript, sub-processed by Python)
+(cd og-compute && npm install)
+
+cp .env.example .env  # fill in deployer key, 3 agent keys, RPC URLs, KeeperHub API key
 ```
 
-### Run AXL nodes
+### Run a rescue end-to-end
 ```bash
-cd axl
-./bin/node -config node-a-config.json   # terminal 1
-./bin/node -config node-b-config.json   # terminal 2
-./bin/node -config node-c-config.json   # terminal 3
+klaxon doctor                      # 28 preflight checks across env, balances, deploys, providers
+klaxon attack reset                # fresh Guardian/Pool/Oracle deploy on the active chain
+klaxon agents up                   # boot 3 AXL daemons + 3 agent processes in the background
+klaxon attack bump --price 1e22    # trigger the oracle manipulation tx
+klaxon findings                    # tail signed Findings as agents detect, attest, and gossip
+klaxon receipts                    # show every Guardian.FindingAttested + Paused on-chain
+klaxon agents down                 # stop everything
 ```
 
-Environment configuration template: [`.env.example`](./.env.example). Copy to `.env` and fill in deployer key, 0G Compute API key, KeeperHub API key, x402 facilitator, and 3 agent keys.
+The historical Day-6 rescue is on chain at `klaxon receipts --chain base-sepolia` (block 40,727,373, finding `0x622e2a05…`).
+
+For video-quality replays without on-chain dependence, open `demo.html` in any browser and click *Run rescue*.
 
 ---
 
@@ -196,15 +202,20 @@ Environment configuration template: [`.env.example`](./.env.example). Copy to `.
 
 ```
 klaxon/
-├── contracts/       # Foundry: Guardian, VulnerableLendingPool, AgentINFT
-├── agents/          # Python: analyzers, AXL client, aggregator, KeeperHub + x402 integrations
-├── dashboard/       # Next.js: topology graph, finding feed, rescue replay, bounty ticker
-├── axl/             # AXL node configs and run scripts (binary in bin/, keys gitignored)
-├── specs/           # Architecture and prompt artifacts (spec-driven dev)
-├── docs/submissions # Per-prize submission write-ups
+├── contracts/       # Foundry: Guardian, VulnerableLendingPool, ManipulableOracle, AgentINFT
+├── agents/          # Python: analyzers, AXL client, aggregator, KeeperHub + 0G Compute clients
+├── klaxon/          # `klaxon` CLI (Typer + Rich) — entry point for the whole flow
+├── og-compute/      # TypeScript bridge to 0G Compute Sealed Inference (sub-processed by Python)
+├── og-storage/      # 0G Storage upload helpers (manifests committed by hash)
+├── manifests/       # Canonical signed agent manifests committed to iNFT tokenURIs
+├── keeperhub/       # KeeperHub workflow definitions + helper scripts
+├── axl/             # AXL node configs (binary in bin/, .pem keys gitignored)
+├── demo.html        # Single-file rescue replay for video capture
+├── docs/submissions # Per-prize submission write-ups (0G, Gensyn AXL, KeeperHub)
+├── specs/           # Architecture artifacts
 ├── PLAN.md          # 9-day build plan with resume block
 ├── AI_USAGE.md      # AI tool attribution (ETHGlobal requirement)
-├── FEEDBACK.md      # KeeperHub Builder Feedback Bounty submission
+├── FEEDBACK.md      # KeeperHub Builder Feedback + 0G Compute SDK feedback
 └── .env.example     # Integration keys template
 ```
 

@@ -177,6 +177,14 @@ class Agent:
         # Attach a TEE-attested summary before signing. Receivers gate quorum
         # on Finding.verify_tee_attestation() — no provider round-trip needed.
         if self.cfg.enable_tee:
+            # Stagger TEE calls across the swarm — the dstack provider caps
+            # concurrent requests per user, so all 3 agents firing at once
+            # routinely loses one even with bridge-level backoff. Per-agent
+            # offset (a=0s, b=8s, c=16s) spreads the load deterministically.
+            offset = {"a": 0.0, "b": 8.0, "c": 16.0}.get(self.cfg.agent_id, 0.0)
+            if offset:
+                self.log.info("staggering TEE attest by %.1fs", offset)
+                time.sleep(offset)
             try:
                 att = self._attest(unsigned)
                 unsigned = unsigned.model_copy(update={
